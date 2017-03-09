@@ -71,7 +71,7 @@ class FastTextMode {
                 }
 
                 _this._worldSpriteContainer = new SpriteGrid(
-                    options.viewWidth, options.viewHeight, options.tileWidthPx, options.tileHeightPx, _this._tileTextures[33]);
+                    options.viewWidth, options.viewHeight, options.tileWidthPx, options.tileHeightPx, _this._tileTextures[' '.codePointAt(0)]);
 
                 _this._parentContainer.addChild(_this._worldSpriteContainer.getSpriteContainer());
                 _this._parentContainer.addChild(_this._stats.fpsText);
@@ -92,6 +92,10 @@ class FastTextMode {
     }
 
     set(x, y, tileCode) {
+        if(typeof(tileCode) === 'string')
+        {
+            tileCode = tileCode.codePointAt(0);
+        }
         this._worldSpriteContainer.getSprites()[x + y * this._options.viewWidth].texture = this._tileTextures[tileCode];
     }
 
@@ -117,7 +121,7 @@ class FastTextMode {
 
 FastTextMode.defaults = {
     renderCanvas: document.getElementById("render-canvas"),
-    renderCanvasSize: {width: 1600, height: 400},
+    renderCanvasSize: {width: 1600, height: 900},
     tilesheetImage: "assets/terminal.png",
     tileWidthPx: 16,
     tileHeightPx: 16,
