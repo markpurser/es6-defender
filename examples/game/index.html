@@ -1,0 +1,79 @@
+<!DOCTYPE HTML>
+
+<!--
+/*
+* ORE - Online Roguelike Engine
+*
+* Copyright (C) 2016  Mark Purser
+* Released under the MIT license
+* http://github.com/markpurser/ORE/LICENSE
+*/
+-->
+
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>ORE example 1</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000000;
+        }
+        #render-canvas { border:1px solid #ccc }
+        #debug-canvas { border:1px solid #ccc }
+    </style>
+
+</head>
+<body onload="init();">
+    <canvas id="render-canvas"></canvas>
+
+    <script src="js/vendor/pixi-4.4.1.min.js"></script>
+    <script src="js/vendor/input.js"></script>
+    <script src="js/es6-defender.min.js"></script>
+
+    <script>
+        function init()
+        {
+            var fastTextMode = new FastTextMode;
+            fastTextMode.init()
+            .then(function() {
+                keyboard = new Keyboard();
+                playerX = 0;
+                playerY = 0;
+
+                function animate()
+                {
+                    if(keyboard.isKeyPressed(Keyboard.KEYS.UP))
+                    {
+                        console.log(playerY--);
+                        fastTextMode.set(5,5,6);
+                    }
+
+                    if(keyboard.isKeyPressed(Keyboard.KEYS.DOWN))
+                    {
+                        playerY++;
+                    }
+
+                    if(keyboard.isKeyPressed(Keyboard.KEYS.LEFT))
+                    {
+                        playerX--;
+                    }
+
+                    if(keyboard.isKeyPressed(Keyboard.KEYS.RIGHT))
+                    {
+                        playerX++;
+                    }
+
+                    fastTextMode.render();
+
+                    requestAnimationFrame(animate);
+                }
+
+                requestAnimationFrame(animate);
+            });
+        }
+    </script>
+
+</body>
+</html>
