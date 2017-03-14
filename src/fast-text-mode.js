@@ -71,7 +71,7 @@ class FastTextMode {
                 }
 
                 _this._worldSpriteContainer = new SpriteGrid(
-                    options.viewWidth, options.viewHeight, options.tileWidthPx, options.tileHeightPx, _this._tileTextures[' '.codePointAt(0)]);
+                    options.viewWidth, options.viewHeight, options.tileWidthPx, options.tileHeightPx, _this._tileTextures['.'.codePointAt(0)]);
 
                 _this._parentContainer.addChild(_this._worldSpriteContainer.getSpriteContainer());
                 _this._parentContainer.addChild(_this._stats.fpsText);
@@ -89,6 +89,15 @@ class FastTextMode {
 
         // render
         this._renderer.render(this._parentContainer);
+
+        // clear screen
+        for(var x = 0; x < this._options.viewWidth; x++)
+        {
+            for(var y = 0; y < this._options.viewHeight; y++)
+            {
+                this.set(x, y, '.');
+            }
+        }
     }
 
     set(x, y, tileCode) {
@@ -97,6 +106,21 @@ class FastTextMode {
             tileCode = tileCode.codePointAt(0);
         }
         this._worldSpriteContainer.getSprites()[x + y * this._options.viewWidth].texture = this._tileTextures[tileCode];
+    }
+
+    setString(x, y, tileString) {
+        var X = x;
+        for(var c = 0; c < tileString.length; c++) {
+            var tileCode = tileString.codePointAt(c);
+            if(tileCode == 10) {
+                y++;
+                x = X;
+            }
+            else {
+                this._worldSpriteContainer.getSprites()[x + y * this._options.viewWidth].texture = this._tileTextures[tileCode];
+                x++;
+            }
+        }
     }
 
     updateStats(stats) {

@@ -35,8 +35,15 @@
     <script>
         function init()
         {
+            var viewWidth = 64, viewHeight = 64;
+
             var fastTextMode = new FastTextMode;
-            fastTextMode.init()
+            fastTextMode.init({
+                renderCanvas: document.getElementById("render-canvas"),
+                renderCanvasSize: {width: 1000, height: 900},
+                viewWidth: viewWidth,
+                viewHeight: viewHeight
+            })
             .then(function() {
                 keyboard = new Keyboard();
                 playerX = 0;
@@ -44,26 +51,29 @@
 
                 function animate()
                 {
+                    var input = {updown: 0, leftright: 0, fire: 0};
+
                     if(keyboard.isKeyPressed(Keyboard.KEYS.UP))
                     {
-                        console.log(playerY--);
-                        fastTextMode.set(5,5,'a');
+                        input.updown = -1;
                     }
 
                     if(keyboard.isKeyPressed(Keyboard.KEYS.DOWN))
                     {
-                        playerY++;
+                        input.updown = 1;
                     }
 
                     if(keyboard.isKeyPressed(Keyboard.KEYS.LEFT))
                     {
-                        playerX--;
+                        input.leftright = -1;
                     }
 
                     if(keyboard.isKeyPressed(Keyboard.KEYS.RIGHT))
                     {
-                        playerX++;
+                        input.leftright = 1;
                     }
+
+                    doGame(fastTextMode, viewWidth, viewHeight, input);
 
                     fastTextMode.render();
 
