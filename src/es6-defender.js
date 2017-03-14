@@ -6,7 +6,10 @@ let InvaderState = Object.freeze({seeking:1, locked:2, abducting:3, mutant:4, ex
 let Event = Object.freeze({locked:1, abducted:2, mutated:3, dead:4, remove:5})
 
 let easing = 0.3;
+let playerAccel = 0.1;
+let playerDamping = 0.1;
 let modulus = 512;
+let projectileLifetime = 25;
 
 class StateVector {
   
@@ -52,19 +55,38 @@ class Human extends StateVector {
   }
 }
 
-class Projectile extends StateVector {}
+class Projectile extends StateVector {
+
+  constructor(id, x, y, xdot, ydot, t_spawned) {
+    super(id, x, y, xdot, ydot);
+
+    this.t_spawned = t_spawned;
+  }
+}
 
 Projectile.sideLen = 1;
-Projectile.graphic = ['*'];
+Projectile.graphic = '-';
 
 
 let updatePlayerPosition = (sv, input) => {
-  sv.x += input.leftright;
-  sv.y += input.updown;
+  sv.xdot += playerAccel * input.leftright;
+  sv.ydot += playerAccel * input.updown;
+
+  sv.xdot += playerDamping * -sv.xdot;
+  sv.ydot += playerDamping * -sv.ydot;
+
+  sv.x += sv.xdot;
+  sv.y += sv.ydot;
 
   sv.x %= modulus;
 
   return sv;
+}
+
+let updatePlayerState = (player, input) => {
+  if(input.leftright != 0) {
+    player.state = (input.leftright == -1) ? PlayerState.faceLeft : PlayerState.faceRight;
+  }
 }
 
 let updateInvaderPosition = (sv, state, targetx, targety) => {
@@ -79,11 +101,20 @@ let updateInvaderPosition = (sv, state, targetx, targety) => {
   return sv;
 }
 
+let updateProjectilePosition = (sv) => {
+  sv.x += sv.xdot;
+  sv.y += sv.ydot;
+
+  sv.x %= modulus;
+
+  return sv;
+}
+
 let cartesianProduct2 = (arr1, arr2) =>
   arr1.map(e1 => arr2.map(e2 => ({fst:e1, snd:e2}))).reduce((arr, e) => arr.concat(e), []);
 
 
-let haveCollided = ({x:x1, y:y1}, size1, {x:x2, y:y2}, size2) =>
+let collided = ({x:x1, y:y1}, size1, {x:x2, y:y2}, size2) =>
     (x2 < (x1 + size1) &&
      x1 < (x2 + size2) &&
      y2 < (y1 + size1) &&
@@ -92,7 +123,7 @@ let haveCollided = ({x:x1, y:y1}, size1, {x:x2, y:y2}, size2) =>
 
 let detectCollisions = (svArr1, size1, svArr2, size2) =>
   cartesianProduct2(svArr1, svArr2)
-    .filter(svPair => haveCollided(svPair.fst, size1, svPair.snd, size2));
+    .filter(svPair => collided(svPair.fst, size1, svPair.snd, size2));
 
 
 let checkSeekingInvaders = (invaders, humans) => {
@@ -102,6 +133,11 @@ let checkSeekingInvaders = (invaders, humans) => {
 let checkHitInvaders = (invaders, projectiles) =>
   detectCollisions(invaders, Invader.sideLen, projectiles, Projectile.sideLen)
     .map(collidedPair => {Event.dead, collidedPair.fst.id, collidedPair.snd.id});
+
+
+let checkProjectiles = (projectiles, t) =>
+  projectiles.filter(p => (t - p.t_spawned) > projectileLifetime)
+    .map(p => ({event:'remove', id:p.id}));
 
 
 
@@ -115,7 +151,11 @@ let player = new Player(playerId, 0, 64 / 2, PlayerState.faceRight, 0);
 let invaders = initArray(2, _ => new Invader(invaderId++, Math.floor(Math.random() * modulus), 64 / 2, InvaderState.seeking, 0));
 // humanId = 200;
 // let humans = initArray(10, _ => new Human(id++, 4, 1));
-let displayStrings = new Map();
+let projectileId = 500;
+let projectiles = [];
+let graphics = new Map();
+
+let t = 0;
 
 let doGame = (fastTextMode, viewWidth, viewHeight, input) => {
 
@@ -136,22 +176,35 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input) => {
   let clip = lcoords => (lcoords.lx >= 0) && (lcoords.ly < viewWidth);
 
 
-  if(input.leftright != 0) {
-    let index = 1;
-    if(input.leftright == -1) index = 0;
-    displayStrings.set(player.id, Player.graphic[index]);
+  updatePlayerState(player, input);
+
+  if(input.fire) {
+    projectiles.push(new Projectile(projectileId++, player.x, player.y+1, (player.state == PlayerState.faceLeft) ? -1 : 1, 0, t));
+    if(projectileId >= 1000) projectileId = 500;
   }
 
-  invaders.map(i => displayStrings.set(i.id, Invader.graphic));
+  let projectileEvents = checkProjectiles(projectiles, t);
+
+  projectileEvents.map(pe => {
+    let i = projectiles.find(n => n.id == pe.id);
+    projectiles.splice(i, 1);
+    graphics.delete(pe.id);
+  });
+
+  graphics.set(player.id, (player.state == PlayerState.faceLeft) ? Player.graphic[0] : Player.graphic[1]);
+
+  invaders.map(i => graphics.set(i.id, Invader.graphic));
+  projectiles.map(p => graphics.set(p.id, Projectile.graphic));
 
   let displayArray = [].concat(
     updatePlayerPosition(player, input),
-    invaders.map(i => updateInvaderPosition(i, i.state, 0, 0))
+    invaders.map(i => updateInvaderPosition(i, i.state, 0, 0)),
+    projectiles.map(updateProjectilePosition)
   );
 
   displayArray.map(toLocal)
     .filter(clip)
-    .map(i => fastTextMode.setString(Math.floor(i.lx), Math.floor(i.ly), displayStrings.has(i.id) ? displayStrings.get(i.id) : '!'));
+    .map(i => fastTextMode.setString(Math.floor(i.lx), Math.floor(i.ly), graphics.has(i.id) ? graphics.get(i.id) : '!'));
 
 
   let lpx = player.x - offsetx;
@@ -161,8 +214,9 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input) => {
   offsetx %= modulus;
 
 
+
   // let e = checkSeekingInvaders(invaders.filter(i => i.state == InvaderState.seeking), humans);
 
-
+  t++;
 }
 

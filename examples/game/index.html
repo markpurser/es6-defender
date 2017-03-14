@@ -73,6 +73,11 @@
                         input.leftright = 1;
                     }
 
+                    if(keyboard.isKeyPressed(Keyboard.KEYS.SPACE))
+                    {
+                        input.fire = 1;
+                    }
+
                     doGame(fastTextMode, viewWidth, viewHeight, input);
 
                     fastTextMode.render();
