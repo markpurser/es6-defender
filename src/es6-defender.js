@@ -8,7 +8,7 @@ let Event = Object.freeze({locked:1, abducted:2, mutated:3, dead:4, remove:5})
 let easing = 0.3;
 let playerAccel = 0.1;
 let playerDamping = 0.1;
-let modulus = 512;
+let modulusx = 512;
 let projectileLifetime = 25;
 
 let Global = {viewWidth:0, viewHeight:0};
@@ -52,10 +52,13 @@ Invader.graphic = '^^\n[]\n';
 
 class Human extends StateVector {
 
-  constructor(id, x, y) {
-    super(id, x, y);
+  constructor(id, x, y, xdot) {
+    super(id, x, y, xdot);
   }
 }
+
+Human.sideLen = 1;
+Human.graphic = 'H';
 
 class Projectile extends StateVector {
 
@@ -69,6 +72,7 @@ class Projectile extends StateVector {
 Projectile.sideLen = 1;
 Projectile.graphic = '-';
 
+let wrapx = (x) => (x + modulusx) % modulusx;
 
 let updatePlayerPosition = (sv, input) => {
   sv.xdot += playerAccel * input.leftright;
@@ -83,7 +87,7 @@ let updatePlayerPosition = (sv, input) => {
   if(sv.y < 0) sv.y = 0;
   if(sv.y > Global.viewHeight - 5) sv.y = Global.viewHeight - 5;
 
-  sv.x %= modulus;
+  sv.x = wrapx(sv.x);
 
   return sv;
 }
@@ -107,7 +111,16 @@ let updateInvaderPosition = (sv, state, targetx, targety) => {
       break;
   }
 
-  sv.x %= modulus;
+  sv.x = wrapx(sv.x);
+
+  return sv;
+}
+
+let updateHumanPosition = (sv) => {
+  sv.x += sv.xdot;
+  sv.y += sv.ydot;
+
+  sv.x = wrapx(sv.x);
 
   return sv;
 }
@@ -116,7 +129,7 @@ let updateProjectilePosition = (sv) => {
   sv.x += sv.xdot;
   sv.y += sv.ydot;
 
-  sv.x %= modulus;
+  sv.x = wrapx(sv.x);
 
   return sv;
 }
@@ -161,12 +174,12 @@ let toLocal = sv => {
 
   if((lx < 0) || (lx >= Global.viewWidth))
   {
-    lx -= modulus;
+    lx -= modulusx;
   }
 
   let ly = sv.y;
 
-  return {id:sv.id, lx:lx, ly:ly};
+  return {id:sv.id, lx:lx, ly:ly, gx_debug:sv.x};
 }
 
 let clip = lcoords => (lcoords.lx >= 0) && (lcoords.ly < Global.viewWidth);
@@ -179,10 +192,10 @@ let initArray = (n, f) => Array(n).fill().map(f);
 let offsetx = 0;
 let playerId = 1;
 let invaderId = 100;
-let player = new Player(playerId, 0, 64 / 2, PlayerState.faceRight, 0);
-let invaders = initArray(3, _ => new Invader(invaderId++, Math.floor(Math.random() * modulus), 64 / 2, InvaderState.seeking, 0));
-// humanId = 200;
-// let humans = initArray(10, _ => new Human(id++, 4, 1));
+let player = new Player(playerId, 0, 48 / 2, PlayerState.faceRight, 0);
+let invaders = initArray(3, _ => new Invader(invaderId++, Math.floor(Math.random() * modulusx), 48 / 2, InvaderState.seeking, 0));
+let humanId = 200;
+let humans = initArray(10, _ => new Human(humanId++, Math.floor(Math.random() * modulusx), 47, 0.2 * (Math.random() - 0.5)));
 let projectileId = 500;
 let projectiles = [];
 let graphics = new Map();
@@ -212,7 +225,7 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, debug = false) => {
   let hits = checkHitInvaders(invaders, projectiles);
   if(hits.length > 0) {
     let id1 = hits[0].id1;
-    if(id1 >= 100 && id1 < 500) {
+    if(id1 >= 100 && id1 < 200) {
       let i = invaders.findIndex(n => n.id == id1);
       invaders.splice(i, 1);
       graphics.delete(id1);
@@ -222,21 +235,25 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, debug = false) => {
   graphics.set(player.id, (player.state == PlayerState.faceLeft) ? Player.graphic[0] : Player.graphic[1]);
 
   invaders.map(i => graphics.set(i.id, Invader.graphic));
+  humans.map(h => graphics.set(h.id, Human.graphic));
   projectiles.map(p => graphics.set(p.id, Projectile.graphic));
 
   let displayArray = [].concat(
     updatePlayerPosition(player, input),
     invaders.map(i => updateInvaderPosition(i, i.state, 0, 0)),
+    humans.map(updateHumanPosition),
     projectiles.map(updateProjectilePosition)
   );
 
-  displayArray.map(toLocal)
+  displayArray
+    .map(toLocal)
     .filter(clip)
     .map(i => {
       fastTextMode.setString(Math.floor(i.lx), Math.floor(i.ly), graphics.has(i.id) ? graphics.get(i.id) : '!')
       if(debug) {
         // display object id on top of graphic
         fastTextMode.setNumber(Math.floor(i.lx), Math.floor(i.ly), i.id)
+        fastTextMode.setNumber(Math.floor(i.lx), Math.floor(i.ly+2), Math.floor(i.gx_debug))
       }
     });
 
@@ -245,7 +262,7 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, debug = false) => {
   lpx += viewWidth / 2;
   offsetx += easing * (lpx - (viewWidth / 2));
 
-  offsetx %= modulus;
+  offsetx = wrapx(offsetx);
 
 
 

@@ -2,18 +2,18 @@
 
 <!--
 /*
-* ORE - Online Roguelike Engine
+* ES6 Defender
 *
-* Copyright (C) 2016  Mark Purser
+* Copyright (C) 2017  Mark Purser
 * Released under the MIT license
-* http://github.com/markpurser/ORE/LICENSE
+* http://github.com/markpurser/es6-defender/LICENSE
 */
 -->
 
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>ORE example 1</title>
+    <title>ES6 Defender</title>
     <style>
         body {
             margin: 0;
@@ -35,12 +35,12 @@
     <script>
         function init()
         {
-            var viewWidth = 64, viewHeight = 64;
+            var viewWidth = 64, viewHeight = 48;
 
             var fastTextMode = new FastTextMode;
             fastTextMode.init({
                 renderCanvas: document.getElementById("render-canvas"),
-                renderCanvasSize: {width: 1000, height: 900},
+                renderCanvasSize: {width: 1100, height: 900},
                 viewWidth: viewWidth,
                 viewHeight: viewHeight
             })

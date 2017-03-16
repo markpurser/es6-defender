@@ -96,11 +96,14 @@ class FastTextMode {
     }
 
     set(x, y, tileCode) {
+        if(x < 0 || x >= this._options.viewWidth || y < 0 || y >= this._options.viewHeight) return;
+
         if(typeof(tileCode) === 'string')
         {
             tileCode = tileCode.codePointAt(0);
         }
-        this._worldSpriteContainer.getSprites()[x + y * this._options.viewWidth].texture = this._tileTextures[tileCode];
+        var index = x + y * this._options.viewWidth;
+        this._worldSpriteContainer.getSprites()[index].texture = this._tileTextures[tileCode];
     }
 
     setString(x, y, tileString) {
@@ -112,7 +115,7 @@ class FastTextMode {
                 x = X;
             }
             else {
-                this._worldSpriteContainer.getSprites()[x + y * this._options.viewWidth].texture = this._tileTextures[tileCode];
+                this.set(x, y, tileCode);
                 x++;
             }
         }
