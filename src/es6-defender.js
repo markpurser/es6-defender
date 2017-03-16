@@ -11,9 +11,11 @@ let playerDamping = 0.1;
 let modulus = 512;
 let projectileLifetime = 25;
 
+let Global = {viewWidth:0, viewHeight:0};
+
 class StateVector {
   
-  constructor(id, x, y, xdot, ydot) {
+  constructor(id, x, y, xdot = 0, ydot = 0) {
     this.id = id;
     this.x = x;
     this.y = y;
@@ -25,7 +27,7 @@ class StateVector {
 class Player extends StateVector {
 
   constructor(id, x, y, state, t_startState) {
-    super(id, x, y, 0, 0);
+    super(id, x, y);
 
     this.state = state;
     this.t_startState = t_startState;
@@ -38,7 +40,7 @@ Player.graphic = ['  /\n<--', '\\  \n-->'];
 class Invader extends StateVector {
   
   constructor(id, x, y, state, t_startState) {
-    super(id, x, y, 0, 0);
+    super(id, x, y);
 
     this.state = state;
     this.t_startState = t_startState;
@@ -51,7 +53,7 @@ Invader.graphic = '^^\n[]\n';
 class Human extends StateVector {
 
   constructor(id, x, y) {
-    super(id, x, y, 0, 0);
+    super(id, x, y);
   }
 }
 
@@ -78,6 +80,9 @@ let updatePlayerPosition = (sv, input) => {
   sv.x += sv.xdot;
   sv.y += sv.ydot;
 
+  if(sv.y < 0) sv.y = 0;
+  if(sv.y > Global.viewHeight - 5) sv.y = Global.viewHeight - 5;
+
   sv.x %= modulus;
 
   return sv;
@@ -92,7 +97,13 @@ let updatePlayerState = (player, input) => {
 let updateInvaderPosition = (sv, state, targetx, targety) => {
   switch(state) {
     case InvaderState.seeking:
-      sv.x++;
+      sv.xdot += 0.01 * (Math.random() - 0.5);
+      sv.ydot += 0.01 * (Math.random() - 0.5);
+      sv.x += sv.xdot;
+      sv.y += sv.ydot;
+
+      if(sv.y < 5) { sv.ydot = -sv.ydot; sv.y = 5; }
+      if(sv.y > (Global.viewHeight - 5)) { sv.ydot = -sv.ydot; sv.y = (Global.viewHeight - 5); }
       break;
   }
 
@@ -111,7 +122,10 @@ let updateProjectilePosition = (sv) => {
 }
 
 let cartesianProduct2 = (arr1, arr2) =>
-  arr1.map(e1 => arr2.map(e2 => ({fst:e1, snd:e2}))).reduce((arr, e) => arr.concat(e), []);
+  arr1.map(e1 => arr2.map(e2 => [e1, e2])).reduce((arr, e) => arr.concat(e), []);
+
+let toTuples = (arr) =>
+  arr.map(a => ({fst:a[0], snd:a[1]}));
 
 
 let collided = ({x:x1, y:y1}, size1, {x:x2, y:y2}, size2) =>
@@ -122,22 +136,40 @@ let collided = ({x:x1, y:y1}, size1, {x:x2, y:y2}, size2) =>
 
 
 let detectCollisions = (svArr1, size1, svArr2, size2) =>
-  cartesianProduct2(svArr1, svArr2)
-    .filter(svPair => collided(svPair.fst, size1, svPair.snd, size2));
+  toTuples(cartesianProduct2(svArr1, svArr2))
+    .filter(svPair => collided(svPair.fst, size1, svPair.snd, size2))
+    .map(collidedPair => ({id1:collidedPair.fst.id, id2:collidedPair.snd.id}));
 
 
 let checkSeekingInvaders = (invaders, humans) => {
-
+  return true;
 }
 
 let checkHitInvaders = (invaders, projectiles) =>
   detectCollisions(invaders, Invader.sideLen, projectiles, Projectile.sideLen)
-    .map(collidedPair => {Event.dead, collidedPair.fst.id, collidedPair.snd.id});
+    .map(collidedPair => { collidedPair.event=Event.dead; return collidedPair; });
 
 
 let checkProjectiles = (projectiles, t) =>
   projectiles.filter(p => (t - p.t_spawned) > projectileLifetime)
-    .map(p => ({event:'remove', id:p.id}));
+    .map(p => ({event:Event.remove, id:p.id}));
+
+
+let toLocal = sv => {
+  let lx = sv.x - offsetx;
+  lx += Global.viewWidth / 2;
+
+  if((lx < 0) || (lx >= Global.viewWidth))
+  {
+    lx -= modulus;
+  }
+
+  let ly = sv.y;
+
+  return {id:sv.id, lx:lx, ly:ly};
+}
+
+let clip = lcoords => (lcoords.lx >= 0) && (lcoords.ly < Global.viewWidth);
 
 
 
@@ -148,7 +180,7 @@ let offsetx = 0;
 let playerId = 1;
 let invaderId = 100;
 let player = new Player(playerId, 0, 64 / 2, PlayerState.faceRight, 0);
-let invaders = initArray(2, _ => new Invader(invaderId++, Math.floor(Math.random() * modulus), 64 / 2, InvaderState.seeking, 0));
+let invaders = initArray(3, _ => new Invader(invaderId++, Math.floor(Math.random() * modulus), 64 / 2, InvaderState.seeking, 0));
 // humanId = 200;
 // let humans = initArray(10, _ => new Human(id++, 4, 1));
 let projectileId = 500;
@@ -157,24 +189,10 @@ let graphics = new Map();
 
 let t = 0;
 
-let doGame = (fastTextMode, viewWidth, viewHeight, input) => {
+let doGame = (fastTextMode, viewWidth, viewHeight, input, debug = false) => {
 
-  let toLocal = sv => {
-    let lx = sv.x - offsetx;
-    lx += viewWidth / 2;
-
-    if((lx < 0) || (lx >= viewWidth))
-    {
-      lx -= modulus;
-    }
-
-    let ly = sv.y;
-
-    return {id:sv.id, lx:lx, ly:ly};
-  }
-
-  let clip = lcoords => (lcoords.lx >= 0) && (lcoords.ly < viewWidth);
-
+  Global.viewWidth = viewWidth;
+  Global.viewHeight = viewHeight;
 
   updatePlayerState(player, input);
 
@@ -186,10 +204,20 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input) => {
   let projectileEvents = checkProjectiles(projectiles, t);
 
   projectileEvents.map(pe => {
-    let i = projectiles.find(n => n.id == pe.id);
+    let i = projectiles.findIndex(n => n.id == pe.id);
     projectiles.splice(i, 1);
     graphics.delete(pe.id);
   });
+
+  let hits = checkHitInvaders(invaders, projectiles);
+  if(hits.length > 0) {
+    let id1 = hits[0].id1;
+    if(id1 >= 100 && id1 < 500) {
+      let i = invaders.findIndex(n => n.id == id1);
+      invaders.splice(i, 1);
+      graphics.delete(id1);
+    }
+  }
 
   graphics.set(player.id, (player.state == PlayerState.faceLeft) ? Player.graphic[0] : Player.graphic[1]);
 
@@ -204,7 +232,13 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input) => {
 
   displayArray.map(toLocal)
     .filter(clip)
-    .map(i => fastTextMode.setString(Math.floor(i.lx), Math.floor(i.ly), graphics.has(i.id) ? graphics.get(i.id) : '!'));
+    .map(i => {
+      fastTextMode.setString(Math.floor(i.lx), Math.floor(i.ly), graphics.has(i.id) ? graphics.get(i.id) : '!')
+      if(debug) {
+        // display object id on top of graphic
+        fastTextMode.setNumber(Math.floor(i.lx), Math.floor(i.ly), i.id)
+      }
+    });
 
 
   let lpx = player.x - offsetx;

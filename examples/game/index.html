@@ -49,6 +49,8 @@
                 playerX = 0;
                 playerY = 0;
 
+                var spaceLatch = 0;
+
                 function animate()
                 {
                     var input = {updown: 0, leftright: 0, fire: 0};
@@ -73,12 +75,18 @@
                         input.leftright = 1;
                     }
 
-                    if(keyboard.isKeyPressed(Keyboard.KEYS.SPACE))
+                    if(spaceLatch == 1)
                     {
-                        input.fire = 1;
+                        if(!keyboard.isKeyPressed(Keyboard.KEYS.SPACE)) spaceLatch = 0;
                     }
 
-                    doGame(fastTextMode, viewWidth, viewHeight, input);
+                    if(keyboard.isKeyPressed(Keyboard.KEYS.SPACE) && spaceLatch == 0)
+                    {
+                        input.fire = 1;
+                        spaceLatch = 1;
+                    }
+
+                    doGame(fastTextMode, viewWidth, viewHeight, input, true);
 
                     fastTextMode.render();
 

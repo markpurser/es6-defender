@@ -10,11 +10,6 @@
 * Copyright (c) 2014 Jice
 */
 
-/**
-* @module FastTextMode
-*/
-
-
 class FastTextMode {
 
     init(options) {
@@ -123,6 +118,10 @@ class FastTextMode {
         }
     }
 
+    setNumber(x, y, number) {
+        this.setString(x, y, number.toString());
+    }
+
     updateStats(stats) {
         stats.currentFrameCount++;
         if( stats.fpsTimer === 0 )
@@ -144,7 +143,6 @@ class FastTextMode {
 }
 
 FastTextMode.defaults = {
-    renderCanvas: document.getElementById("render-canvas"),
     renderCanvasSize: {width: 1600, height: 900},
     tilesheetImage: "assets/terminal.png",
     tileWidthPx: 16,
