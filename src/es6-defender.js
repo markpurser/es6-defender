@@ -114,7 +114,12 @@ let updateInvaderPosition = (sv, state, targetx, targety) => {
 
         sv.x += sv.xdot;
         sv.y += sv.ydot;
-      }      
+      },
+      [InvaderState.abducted]: () => {
+        sv.ydot = -0.1;
+
+        sv.y += sv.ydot;
+      }
     }[state]();
 
   return sv;
@@ -187,6 +192,12 @@ let checkSeekingInvader = (invader, humans) => {
   return [];
 }
 
+let checkLockedInvader = (invader, e) => {
+  return ((invader.y + Invader.sideLen) >= Global.viewHeight) ?
+    [{event:Event.abducted, invaderId:invader.id, humanId:e.humanId}] :
+    [];
+}
+
 let checkHitInvaders = (invaders, projectiles) =>
   detectCollisions(invaders, Invader.sideLen, projectiles, Projectile.sideLen)
     .map(collidedPair => { collidedPair.event=Event.dead; return collidedPair; });
@@ -251,11 +262,13 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, debug = false) => {
   let hitEvents = checkHitInvaders(invaders, projectiles);
 
   let seekingInvaderEvents = invaders.filter(i => i.state == InvaderState.seeking).reduce((arr, i) => arr.concat(checkSeekingInvader(i, humans)), []);
+  let lockedInvaderEvents = invaders.filter(i => i.state == InvaderState.locked).reduce((arr, i) => arr.concat(checkLockedInvader(i, invaderTargets.get(i.id))), []);
 
-  let allEvents = [].concat(projectileEvents, hitEvents, seekingInvaderEvents);
+  let allEvents = [].concat(projectileEvents, hitEvents, seekingInvaderEvents, lockedInvaderEvents);
   allEvents.filter(e => e.event == Event.remove).map(e => remove(projectiles, e.id, graphics));
   allEvents.filter(e => e.event == Event.dead).map(e => remove(invaders, e.id1, graphics));
   allEvents.filter(e => e.event == Event.locked).map(e => { updateInvaderState(invaders, e.invaderId, InvaderState.locked); invaderTargets.set(e.invaderId, e); });
+  allEvents.filter(e => e.event == Event.abducted).map(e => { console.log('hello'); updateInvaderState(invaders, e.invaderId, InvaderState.abducted); });
 
 
   graphics.set(player.id, (player.state == PlayerState.faceLeft) ? Player.graphic[0] : Player.graphic[1]);
