@@ -98,30 +98,45 @@ let updatePlayerState = (player, input) => {
 }
 
 let updateInvaderPosition = (sv, state, targetx, targety) => {
-  switch(state) {
-    case InvaderState.seeking:
-      sv.xdot += 0.01 * (Math.random() - 0.5);
-      sv.ydot += 0.01 * (Math.random() - 0.5);
-      sv.x += sv.xdot;
-      sv.y += sv.ydot;
+  let a = {
+      [InvaderState.seeking]: () => {
+        sv.xdot += 0.01 * (Math.random() - 0.5);
+        sv.ydot += 0.01 * (Math.random() - 0.5);
+        sv.x += sv.xdot;
+        sv.y += sv.ydot;
 
-      if(sv.y < 5) { sv.ydot = -sv.ydot; sv.y = 5; }
-      if(sv.y > (Global.viewHeight - 5)) { sv.ydot = -sv.ydot; sv.y = (Global.viewHeight - 5); }
-      break;
-  }
+        if(sv.y < 5) { sv.ydot = -sv.ydot; sv.y = 5; }
+        if(sv.y > (Global.viewHeight - 5)) { sv.ydot = -sv.ydot; sv.y = (Global.viewHeight - 5); }
+      },
+      [InvaderState.locked]: () => {
+        sv.xdot = targetx;
+        sv.ydot = 0.1;
 
-  sv.x = wrapx(sv.x);
+        sv.x += sv.xdot;
+        sv.y += sv.ydot;
+      }      
+    }[state]();
 
   return sv;
 }
 
-let updateInvaders = (invaders) => invaders.map(i => updateInvaderPosition(i, i.state, 0, 0));
+let updateInvaders = (invaders, invaderTargets) =>
+  invaders.map(i => {
+    let targetx = 0;
+    if(invaderTargets.has(i.id)) {
+      targetx = invaderTargets.get(i.id).humanXDot;
+    }
+    updateInvaderPosition(i, i.state, targetx, 0);
+  });
+
+let updateInvaderState = (invaders, id, state) => {
+  let i = invaders.findIndex(i => i.id == id);
+  invaders[i].state = state;
+}
 
 let updateHumanPosition = (sv) => {
   sv.x += sv.xdot;
   sv.y += sv.ydot;
-
-  sv.x = wrapx(sv.x);
 
   return sv;
 }
@@ -131,8 +146,6 @@ let updateHumans = (humans) => humans.map(updateHumanPosition);
 let updateProjectilePosition = (sv) => {
   sv.x += sv.xdot;
   sv.y += sv.ydot;
-
-  sv.x = wrapx(sv.x);
 
   return sv;
 }
@@ -146,11 +159,16 @@ let toTuples = (arr) =>
   arr.map(a => ({fst:a[0], snd:a[1]}));
 
 
+let xoverlap = (x1, size1, x2, size2) =>
+  (x2 < (x1 + size1) &&
+   x1 < (x2 + size2));
+
+let yoverlap = (y1, size1, y2, size2) =>
+  (y2 < (y1 + size1) &&
+   y1 < (y2 + size2));
+
 let collided = ({x:x1, y:y1}, size1, {x:x2, y:y2}, size2) =>
-    (x2 < (x1 + size1) &&
-     x1 < (x2 + size2) &&
-     y2 < (y1 + size1) &&
-     y1 < (y2 + size2));
+  (xoverlap(x1, size1, x2, size2) && yoverlap(y1, size1, y2, size2));
 
 
 let detectCollisions = (svArr1, size1, svArr2, size2) =>
@@ -159,8 +177,14 @@ let detectCollisions = (svArr1, size1, svArr2, size2) =>
     .map(collidedPair => ({id1:collidedPair.fst.id, id2:collidedPair.snd.id}));
 
 
-let checkSeekingInvaders = (invaders, humans) => {
-  return true;
+let checkSeekingInvader = (invader, humans) => {
+  let inRangeHumans = humans.filter(h => xoverlap(invader.x, Invader.sideLen, h.x, Human.sideLen));
+  if(inRangeHumans.length > 0) {
+    if(Math.random() < 0.01) {
+      return [{event:Event.locked, invaderId:invader.id, humanId:inRangeHumans[0].id, humanXDot:inRangeHumans[0].xdot}];
+    }
+  }
+  return [];
 }
 
 let checkHitInvaders = (invaders, projectiles) =>
@@ -206,6 +230,7 @@ let humans = initArray(10, _ => new Human(humanId++, Math.floor(Math.random() * 
 let projectileId = 500;
 let projectiles = [];
 let graphics = new Map();
+let invaderTargets = new Map();
 
 let t = 0;
 
@@ -223,18 +248,15 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, debug = false) => {
 
   let projectileEvents = checkProjectiles(projectiles, t);
 
+  let hitEvents = checkHitInvaders(invaders, projectiles);
 
-  projectileEvents.map(pe => {
-    remove(projectiles, pe.id, graphics);
-  });
+  let seekingInvaderEvents = invaders.filter(i => i.state == InvaderState.seeking).reduce((arr, i) => arr.concat(checkSeekingInvader(i, humans)), []);
 
-  let hits = checkHitInvaders(invaders, projectiles);
-  if(hits.length > 0) {
-    let id = hits[0].id1;
-    if(id >= 100 && id < 200) {
-      remove(invaders, id, graphics);
-    }
-  }
+  let allEvents = [].concat(projectileEvents, hitEvents, seekingInvaderEvents);
+  allEvents.filter(e => e.event == Event.remove).map(e => remove(projectiles, e.id, graphics));
+  allEvents.filter(e => e.event == Event.dead).map(e => remove(invaders, e.id1, graphics));
+  allEvents.filter(e => e.event == Event.locked).map(e => { updateInvaderState(invaders, e.invaderId, InvaderState.locked); invaderTargets.set(e.invaderId, e); });
+
 
   graphics.set(player.id, (player.state == PlayerState.faceLeft) ? Player.graphic[0] : Player.graphic[1]);
 
@@ -244,16 +266,16 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, debug = false) => {
 
 
   updatePlayerPosition(player, input);
-  updateInvaders(invaders);
+  updateInvaders(invaders, invaderTargets);
   updateHumans(humans);
   updateProjectiles(projectiles);
 
   let displacementList = [].concat(invaders, humans, projectiles);
 
-  let displacementx = player.xdot;
-  displacementList.map(o => {o.x -= displacementx});
+  let displacement = player.xdot;
+  displacementList.map(o => {o.x = wrapx(o.x - displacement)});
 
-  let displayList = [].concat(player, displacementList);
+  let displayList = displacementList.concat(player);
 
   displayList
     .map(toLocal)
