@@ -121,6 +121,10 @@ let updateInvaderPosition = (sv, state, targetx, targety) => {
 
         sv.y += sv.ydot;
       },
+      [InvaderState.mutant]: () => {
+        sv.x += 0.01 * (targetx - sv.x) + 3 * (Math.random() - 0.5);
+        sv.y += 0.01 * (targety - sv.y);
+      },
       [InvaderState.exploding]: () => {
       },
       [InvaderState.explodingReleaseHuman]: () => {
@@ -130,24 +134,29 @@ let updateInvaderPosition = (sv, state, targetx, targety) => {
   return sv;
 }
 
-let updateInvaders = (invaders, invaderTargets) =>
+let updateInvaders = (invaders, invaderTargets, player) =>
   invaders.map(i => {
-    let targetx = 0;
-    if(invaderTargets.has(i.id)) {
+    let targetx = 0, targety = 0;
+    if(i.state == InvaderState.mutant) {
+      targetx = player.x;
+      targety = player.y;
+    }
+    else if(invaderTargets.has(i.id)) {
       targetx = invaderTargets.get(i.id).humanXDot;
     }
-    updateInvaderPosition(i, i.state, targetx, 0);
+    updateInvaderPosition(i, i.state, targetx, targety);
   });
 
 let updateInvaderState = (invaders, events, t) => {
   events.map(e => {
-    if(e.event == Event.locked || e.event == Event.abducted || e.event == Event.dead)
+    if(e.event == Event.locked || e.event == Event.abducted || e.event == Event.dead || e.event == Event.mutated)
     {
       let idx = invaders.findIndex(i => i.id == e.invaderId);
       let i = invaders[idx];
       i.state = {
         [Event.locked]: InvaderState.locked,
         [Event.abducted]: InvaderState.abducting,
+        [Event.mutated]: InvaderState.mutant,
         [Event.dead]: i.state == InvaderState.abducting ? InvaderState.explodingReleaseHuman : InvaderState.exploding
       }[e.event];
       i.t_startState = t;      
@@ -201,7 +210,7 @@ let detectCollisions = (svArr1, size1, svArr2, size2) =>
 let checkSeekingInvader = (invader, humans) => {
   let inRangeHumans = humans.filter(h => xoverlap(invader.x, Invader.sideLen, h.x, Human.sideLen));
   if(inRangeHumans.length > 0) {
-    if(Math.random() < 0.01) {
+    if(Math.random() < 0.1) {
       return [{event:Event.locked, invaderId:invader.id, humanId:inRangeHumans[0].id, humanXDot:inRangeHumans[0].xdot}];
     }
   }
@@ -212,6 +221,12 @@ let checkLockedInvader = (invader, e) => {
   return ((invader.y + Invader.sideLen) >= Global.viewHeight) ?
     [{event:Event.abducted, invaderId:invader.id, humanId:e.humanId},
      {event:Event.removeHuman, id:e.humanId}] :
+    [];
+}
+
+let checkAbductingInvader = (invader) => {
+  return (invader.y <= 0) ?
+    [{event:Event.mutated, invaderId:invader.id}] :
     [];
 }
 
@@ -278,9 +293,9 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, debug = false) => {
 
   let seekingInvaderEvents = invaders.filter(i => i.state == InvaderState.seeking).reduce((arr, i) => arr.concat(checkSeekingInvader(i, humans)), []);
   let lockedInvaderEvents = invaders.filter(i => i.state == InvaderState.locked).reduce((arr, i) => arr.concat(checkLockedInvader(i, invaderTargets.get(i.id))), []);
-//  let abductingInvaderEvents = invaders.filter(i => i.state == InvaderState.abducting).reduce((arr, i) => arr.concat(checkAbductingInvader(i, invaderTargets.get(i.id))), []);
+  let abductingInvaderEvents = invaders.filter(i => i.state == InvaderState.abducting).reduce((arr, i) => arr.concat(checkAbductingInvader(i)), []);
 
-  let invaderEvents = [].concat(hitEvents, seekingInvaderEvents, lockedInvaderEvents);
+  let invaderEvents = [].concat(hitEvents, seekingInvaderEvents, lockedInvaderEvents, abductingInvaderEvents);
 
   let allEvents = [].concat(projectileEvents, hitEvents, invaderEvents);
   allEvents.filter(e => e.event == Event.removeProjectile).map(e => remove(projectiles, e.id, graphics));
@@ -303,7 +318,7 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, debug = false) => {
   updateInvaderState(invaders, invaderEvents, t);
 
   updatePlayerPosition(player, input);
-  updateInvaders(invaders, invaderTargets);
+  updateInvaders(invaders, invaderTargets, player);
   updateHumans(humans);
   updateProjectiles(projectiles);
   // end non-functional code section
