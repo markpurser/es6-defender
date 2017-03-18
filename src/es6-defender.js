@@ -1,9 +1,9 @@
 
 let PlayerState = Object.freeze({faceLeft:1, faceRight:2, exploding:3})
 
-let InvaderState = Object.freeze({seeking:1, locked:2, abducting:3, mutant:4, exploding:5})
+let InvaderState = Object.freeze({seeking:1, locked:2, abducting:3, mutant:4, exploding:5, explodingReleaseHuman:6})
 
-let Event = Object.freeze({locked:1, abducted:2, mutated:3, dead:4, remove:5})
+let Event = Object.freeze({locked:1, abducted:2, mutated:3, dead:4, removeProjectile:5, removeHuman:6})
 
 let easing = 0.05;
 let playerAccel = 0.15;
@@ -50,11 +50,12 @@ class Invader extends StateVector {
 
 Invader.sideLen = 2;
 Invader.graphic = '^^\n[]\n';
+Invader.graphicAbducting = '^^\n[]\nH';
 
 class Human extends StateVector {
 
-  constructor(id, x, y, xdot) {
-    super(id, x, y, xdot);
+  constructor(id, x, y, xdot, ydot) {
+    super(id, x, y, xdot, ydot);
   }
 }
 
@@ -115,10 +116,14 @@ let updateInvaderPosition = (sv, state, targetx, targety) => {
         sv.x += sv.xdot;
         sv.y += sv.ydot;
       },
-      [InvaderState.abducted]: () => {
+      [InvaderState.abducting]: () => {
         sv.ydot = -0.1;
 
         sv.y += sv.ydot;
+      },
+      [InvaderState.exploding]: () => {
+      },
+      [InvaderState.explodingReleaseHuman]: () => {
       }
     }[state]();
 
@@ -134,9 +139,20 @@ let updateInvaders = (invaders, invaderTargets) =>
     updateInvaderPosition(i, i.state, targetx, 0);
   });
 
-let updateInvaderState = (invaders, id, state) => {
-  let i = invaders.findIndex(i => i.id == id);
-  invaders[i].state = state;
+let updateInvaderState = (invaders, events, t) => {
+  events.map(e => {
+    if(e.event == Event.locked || e.event == Event.abducted || e.event == Event.dead)
+    {
+      let idx = invaders.findIndex(i => i.id == e.invaderId);
+      let i = invaders[idx];
+      i.state = {
+        [Event.locked]: InvaderState.locked,
+        [Event.abducted]: InvaderState.abducting,
+        [Event.dead]: i.state == InvaderState.abducting ? InvaderState.explodingReleaseHuman : InvaderState.exploding
+      }[e.event];
+      i.t_startState = t;      
+    }
+  })
 }
 
 let updateHumanPosition = (sv) => {
@@ -194,18 +210,19 @@ let checkSeekingInvader = (invader, humans) => {
 
 let checkLockedInvader = (invader, e) => {
   return ((invader.y + Invader.sideLen) >= Global.viewHeight) ?
-    [{event:Event.abducted, invaderId:invader.id, humanId:e.humanId}] :
+    [{event:Event.abducted, invaderId:invader.id, humanId:e.humanId},
+     {event:Event.removeHuman, id:e.humanId}] :
     [];
 }
 
 let checkHitInvaders = (invaders, projectiles) =>
   detectCollisions(invaders, Invader.sideLen, projectiles, Projectile.sideLen)
-    .map(collidedPair => { collidedPair.event=Event.dead; return collidedPair; });
+    .map(collidedPair => ({event:Event.dead, invaderId:collidedPair.id1}));
 
 
 let checkProjectiles = (projectiles, t) =>
   projectiles.filter(p => (t - p.t_spawned) > projectileLifetime)
-    .map(p => ({event:Event.remove, id:p.id}));
+    .map(p => ({event:Event.removeProjectile, id:p.id}));
 
 
 let toLocal = sv => {
@@ -250,8 +267,6 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, debug = false) => {
   Global.viewWidth = viewWidth;
   Global.viewHeight = viewHeight;
 
-  updatePlayerState(player, input);
-
   if(input.fire) {
     projectiles.push(new Projectile(projectileId++, player.x, player.y+1, (player.state == PlayerState.faceLeft) ? -2 : 2, 0, t));
     if(projectileId >= 1000) projectileId = 500;
@@ -263,25 +278,45 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, debug = false) => {
 
   let seekingInvaderEvents = invaders.filter(i => i.state == InvaderState.seeking).reduce((arr, i) => arr.concat(checkSeekingInvader(i, humans)), []);
   let lockedInvaderEvents = invaders.filter(i => i.state == InvaderState.locked).reduce((arr, i) => arr.concat(checkLockedInvader(i, invaderTargets.get(i.id))), []);
+//  let abductingInvaderEvents = invaders.filter(i => i.state == InvaderState.abducting).reduce((arr, i) => arr.concat(checkAbductingInvader(i, invaderTargets.get(i.id))), []);
 
-  let allEvents = [].concat(projectileEvents, hitEvents, seekingInvaderEvents, lockedInvaderEvents);
-  allEvents.filter(e => e.event == Event.remove).map(e => remove(projectiles, e.id, graphics));
-  allEvents.filter(e => e.event == Event.dead).map(e => remove(invaders, e.id1, graphics));
-  allEvents.filter(e => e.event == Event.locked).map(e => { updateInvaderState(invaders, e.invaderId, InvaderState.locked); invaderTargets.set(e.invaderId, e); });
-  allEvents.filter(e => e.event == Event.abducted).map(e => { console.log('hello'); updateInvaderState(invaders, e.invaderId, InvaderState.abducted); });
+  let invaderEvents = [].concat(hitEvents, seekingInvaderEvents, lockedInvaderEvents);
+
+  let allEvents = [].concat(projectileEvents, hitEvents, invaderEvents);
+  allEvents.filter(e => e.event == Event.removeProjectile).map(e => remove(projectiles, e.id, graphics));
+  allEvents.filter(e => e.event == Event.locked).map(e => invaderTargets.set(e.invaderId, e));
+  allEvents.filter(e => e.event == Event.removeHuman).map(e => remove(humans, e.id, graphics));
 
 
   graphics.set(player.id, (player.state == PlayerState.faceLeft) ? Player.graphic[0] : Player.graphic[1]);
 
-  invaders.map(i => graphics.set(i.id, Invader.graphic));
+  invaders.map(i => {
+    let g = (i.state == InvaderState.abducting) ? Invader.graphicAbducting : Invader.graphic;
+    graphics.set(i.id, g);
+  });
   humans.map(h => graphics.set(h.id, Human.graphic));
   projectiles.map(p => graphics.set(p.id, Projectile.graphic));
 
+
+  // non-functional code section. game objects are updated 'in-place'
+  updatePlayerState(player, input);
+  updateInvaderState(invaders, invaderEvents, t);
 
   updatePlayerPosition(player, input);
   updateInvaders(invaders, invaderTargets);
   updateHumans(humans);
   updateProjectiles(projectiles);
+  // end non-functional code section
+
+  // events based on state changes must be placed after update code
+
+  // abducting invaders drop human when hit
+  invaders.filter(i => i.state == InvaderState.explodingReleaseHuman && i.t_startState == t)
+    .map(i => humans.push(new Human(humanId++, i.x+2, i.y, 0, 0.1)));
+
+  invaders.filter(i => i.state == InvaderState.explodingReleaseHuman || i.state == InvaderState.exploding && i.t_startState == t)
+    .map(i => remove(invaders, i.id, graphics));
+
 
   let displacementList = [].concat(invaders, humans, projectiles);
 
@@ -297,8 +332,8 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, debug = false) => {
       fastTextMode.setString(Math.floor(i.lx), Math.floor(i.ly), graphics.has(i.id) ? graphics.get(i.id) : '!')
       if(debug) {
         // overlay object id and x coordinate
-        fastTextMode.setNumber(Math.floor(i.lx), Math.floor(i.ly), i.id)
-        fastTextMode.setNumber(Math.floor(i.lx), Math.floor(i.ly+2), Math.floor(i.gx_debug))
+        fastTextMode.setNumber(Math.floor(i.lx+3), Math.floor(i.ly), i.id)
+        fastTextMode.setNumber(Math.floor(i.lx), Math.floor(i.ly+4), Math.floor(i.gx_debug))
       }
     });
 
