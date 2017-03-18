@@ -6,10 +6,10 @@ let InvaderState = Object.freeze({seeking:1, locked:2, abducting:3, mutant:4, ex
 let Event = Object.freeze({locked:1, abducted:2, mutated:3, dead:4, removeProjectile:5, removeHuman:6, playerDead:7})
 
 let easing = 0.05;
-let playerAccel = 0.15;
-let playerDamping = 0.1;
-let halfmodulusx = 256;
-let modulusx = 512;
+let playerAccel = 0.5;
+let playerDamping = 0.2;
+let halfmodulusx = 512;
+let modulusx = 1024;
 let projectileLifetime = 50;
 
 let Global = {viewWidth:0, viewHeight:0};
@@ -48,9 +48,9 @@ class Invader extends StateVector {
   }
 }
 
-Invader.sideLen = 2;
-Invader.graphic = '^^\n[]\n';
-Invader.graphicAbducting = '^^\n[]\nH';
+Invader.sideLen = 4;
+Invader.graphic = '^^^^\n[[]]\n[[]]\n[[]]';
+Invader.graphicAbducting = '^^^^\n[[]]\n[[]]\n[[]]\n HH \n HH';
 
 class Human extends StateVector {
 
@@ -59,8 +59,8 @@ class Human extends StateVector {
   }
 }
 
-Human.sideLen = 1;
-Human.graphic = 'H';
+Human.sideLen = 2;
+Human.graphic = 'HH\nHH';
 
 class Projectile extends StateVector {
 
@@ -71,9 +71,9 @@ class Projectile extends StateVector {
   }
 }
 
-Projectile.sideLen = 1;
-Projectile.graphic = '-';
-Projectile.graphic2 = '*';
+Projectile.sideLen = 2;
+Projectile.graphic = '--';
+Projectile.graphic2 = '**\n**';
 
 let wrapx = (x) => (x + modulusx) % modulusx;
 
@@ -102,8 +102,8 @@ let updatePlayerState = (player, input) => {
 let updateInvaderPosition = (sv, state, targetx, targety) => {
   let a = {
       [InvaderState.seeking]: () => {
-        sv.xdot += 0.01 * (Math.random() - 0.5);
-        sv.ydot += 0.01 * (Math.random() - 0.5);
+        sv.xdot += 0.02 * (Math.random() - 0.5);
+        sv.ydot += 0.02 * (Math.random() - 0.5);
         sv.x += sv.xdot;
         sv.y += sv.ydot;
 
@@ -112,19 +112,19 @@ let updateInvaderPosition = (sv, state, targetx, targety) => {
       },
       [InvaderState.locked]: () => {
         sv.xdot = targetx;
-        sv.ydot = 0.1;
+        sv.ydot = 0.2;
 
         sv.x += sv.xdot;
         sv.y += sv.ydot;
       },
       [InvaderState.abducting]: () => {
-        sv.ydot = -0.1;
+        sv.ydot = -0.2;
 
         sv.y += sv.ydot;
       },
       [InvaderState.mutant]: () => {
-        sv.x += 0.01 * (targetx - sv.x) + 3 * (Math.random() - 0.5);
-        sv.y += 0.01 * (targety - sv.y);
+        sv.x += 0.02 * (targetx - sv.x) + 3 * (Math.random() - 0.5);
+        sv.y += 0.02 * (targety - sv.y);
       },
       [InvaderState.exploding]: () => {
       },
@@ -270,10 +270,10 @@ let offsetx = 0;
 let targetoffsetx = 0;
 let playerId = 1;
 let invaderId = 100;
-let player = new Player(playerId, 0, 48 / 2, PlayerState.faceRight, 0);
-let invaders = initArray(10, _ => new Invader(invaderId++, Math.floor(Math.random() * modulusx), 48 / 2, InvaderState.seeking, 0));
+let player = new Player(playerId, 0, 96 / 2, PlayerState.faceRight, 0);
+let invaders = initArray(10, _ => new Invader(invaderId++, Math.floor(Math.random() * modulusx), 96 / 2, InvaderState.seeking, 0));
 let humanId = 200;
-let humans = initArray(10, _ => new Human(humanId++, Math.floor(Math.random() * modulusx), 47, 0.2 * (Math.random() - 0.5)));
+let humans = initArray(10, _ => new Human(humanId++, Math.floor(Math.random() * modulusx), 94, 0.2 * (Math.random() - 0.5)));
 let projectileId = 500;
 let projectiles = [];
 let invaderProjectileId = 1000;
@@ -289,7 +289,7 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, debug = false) => {
   Global.viewHeight = viewHeight;
 
   if(input.fire) {
-    projectiles.push(new Projectile(projectileId++, player.x, player.y+1, (player.state == PlayerState.faceLeft) ? -2 : 2, 0, t));
+    projectiles.push(new Projectile(projectileId++, player.x, player.y+1, (player.state == PlayerState.faceLeft) ? -4 : 4, 0, t));
     if(projectileId >= 1000) projectileId = 500;
   }
 
@@ -311,7 +311,7 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, debug = false) => {
   });
 
   if(invaderProjectileId >= 1500) invaderProjectileId = 1000;
-  if(invaderProjectiles.length > 30) invaderProjectiles.splice(0, 1);
+  if(invaderProjectiles.length > 30) remove(invaderProjectiles, invaderProjectiles[0].id, graphics);
 
 
   let projectileEvents = checkProjectiles(projectiles, t);
@@ -387,7 +387,7 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, debug = false) => {
     });
 
 
-  (player.state == PlayerState.faceLeft) ? targetoffsetx = halfmodulusx - 16 : targetoffsetx = halfmodulusx + 16;
+  (player.state == PlayerState.faceLeft) ? targetoffsetx = halfmodulusx - 32 : targetoffsetx = halfmodulusx + 32;
   offsetx += easing * (targetoffsetx - offsetx);
 
   // let e = checkSeekingInvaders(invaders.filter(i => i.state == InvaderState.seeking), humans);

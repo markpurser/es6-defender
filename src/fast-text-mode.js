@@ -38,7 +38,7 @@ class FastTextMode {
 
             _this._renderer = PIXI.autoDetectRenderer(
                 options.renderCanvasSize.width, options.renderCanvasSize.height, pixiOptions);
-            _this._renderer.backgroundColor = 0x66ff99;
+            _this._renderer.backgroundColor = 0x0;
 
             _this._stats = {
                 fpsText: new PIXI.Text('', {font: '24px Arial', fill: 0xff1010}),
@@ -90,7 +90,7 @@ class FastTextMode {
         {
             for(var y = 0; y < this._options.viewHeight; y++)
             {
-                this.set(x, y, '.');
+                this.set(x, y, ' ');
             }
         }
     }
@@ -148,10 +148,10 @@ class FastTextMode {
 FastTextMode.defaults = {
     renderCanvasSize: {width: 1600, height: 900},
     tilesheetImage: "assets/terminal.png",
-    tileWidthPx: 16,
-    tileHeightPx: 16,
-    viewWidth: 64,
-    viewHeight: 64,
+    tileWidthPx: 8,
+    tileHeightPx: 8,
+    viewWidth: 128,
+    viewHeight: 128,
     displayStats: true
 }
 
