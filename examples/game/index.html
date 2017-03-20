@@ -47,6 +47,7 @@
                 keyboard = new Keyboard();
                 playerX = 0;
                 playerY = 0;
+                t = 0;
 
                 var spaceLatch = 0;
 
@@ -85,7 +86,7 @@
                         spaceLatch = 1;
                     }
 
-                    doGame(fastTextMode, viewWidth, viewHeight, input, true);
+                    doGame(fastTextMode, viewWidth, viewHeight, input, t++, false);
 
                     fastTextMode.render();
 

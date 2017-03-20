@@ -3,13 +3,16 @@ let PlayerState = Object.freeze({faceLeft:1, faceRight:2, exploding:3})
 
 let InvaderState = Object.freeze({seeking:1, locked:2, abducting:3, mutant:4, exploding:5, explodingReleaseHuman:6})
 
-let Event = Object.freeze({locked:1, abducted:2, mutated:3, dead:4, removeProjectile:5, removeHuman:6, playerDead:7})
+let Event = Object.freeze({locked:1, abducted:2, mutated:3, dead:4, removeProjectile:5, removeHuman:6, playerDead:7, collectedHuman:8})
 
 let easing = 0.05;
-let playerAccel = 0.5;
+let playerXAccel = 0.8;
+let playerYAccel = 0.4;
 let playerDamping = 0.2;
-let halfmodulusx = 512;
-let modulusx = 1024;
+let modulusx = 512;
+let halfmodulusx = modulusx / 2;
+let starmodulusx = 256;
+let halfstarmodulusx = starmodulusx / 2;
 let projectileLifetime = 50;
 
 let Global = {viewWidth:0, viewHeight:0};
@@ -75,16 +78,38 @@ Projectile.sideLen = 2;
 Projectile.graphic = '--';
 Projectile.graphic2 = '**\n**';
 
-let wrapx = (x) => (x + modulusx) % modulusx;
+class Star extends StateVector {
+
+  constructor(id, x, y, depth) {
+    super(id, x, y);
+
+    this.depth = depth;
+  }
+}
+
+Star.graphic = '.';
+
+
+let wrapx = (x) => {
+  if(x < -halfmodulusx) x += modulusx;
+  else if(x >= halfmodulusx) x -= modulusx;
+  return x;
+}
+
+let wrapstarx = (x) => {
+  if(x < -halfstarmodulusx) x += starmodulusx;
+  else if(x >= halfstarmodulusx) x -= starmodulusx;
+  return x;
+}
 
 let updatePlayerPosition = (sv, input) => {
-  sv.xdot += playerAccel * input.leftright;
-  sv.ydot += playerAccel * input.updown;
+  sv.xdot += playerXAccel * input.leftright;
+  sv.ydot += playerYAccel * input.updown;
 
   sv.xdot += playerDamping * -sv.xdot;
   sv.ydot += playerDamping * -sv.ydot;
 
-  sv.x = halfmodulusx;
+  sv.x = 0;
   sv.y += sv.ydot;
 
   if(sv.y < 0) sv.y = 0;
@@ -232,11 +257,25 @@ let checkAbductingInvader = (invader) => {
 
 let checkHitInvaders = (invaders, projectiles) =>
   detectCollisions(invaders, Invader.sideLen, projectiles, Projectile.sideLen)
-    .map(collidedPair => ({event:Event.dead, invaderId:collidedPair.id1}));
+    .reduce((arr, collidedPair) => arr.concat([
+      {event:Event.dead, invaderId:collidedPair.id1},
+      {event:Event.removeProjectile, id:collidedPair.id2}
+    ]), []);
 
-let checkHitPlayer = (player, projectiles) =>
+let checkHitPlayerProjectiles = (player, projectiles) =>
   detectCollisions([player], Player.sideLen, projectiles, Projectile.sideLen)
     .map(collidedPair => ({event:Event.playerDead}));
+
+let checkHitPlayerInvaders = (player, invaders) =>
+  detectCollisions([player], Player.sideLen, invaders, Invader.sideLen)
+    .map(collidedPair => ({event:Event.playerDead}));
+
+let checkHitPlayerHumans = (player, humans) =>
+  detectCollisions([player], Player.sideLen, humans, Human.sideLen)
+    .reduce((arr, collidedPair) => arr.concat([
+      {event:Event.collectedHuman},
+      {event:Event.removeHuman, id:collidedPair.id2}
+    ]), []);
 
 
 let checkProjectiles = (projectiles, t) =>
@@ -263,7 +302,7 @@ let remove = (objects, id, graphics) => {
 
 
 
-let initArray = (n, f) => Array(n).fill().map(f);
+let fillWith = (n, f) => Array(n).fill().map(f);
 
 
 let offsetx = 0;
@@ -271,19 +310,19 @@ let targetoffsetx = 0;
 let playerId = 1;
 let invaderId = 100;
 let player = new Player(playerId, 0, 96 / 2, PlayerState.faceRight, 0);
-let invaders = initArray(10, _ => new Invader(invaderId++, Math.floor(Math.random() * modulusx), 96 / 2, InvaderState.seeking, 0));
+let invaders = fillWith(10, _ => new Invader(invaderId++, (Math.random() - 0.5) * modulusx, 96 / 2, InvaderState.seeking, 0));
 let humanId = 200;
-let humans = initArray(10, _ => new Human(humanId++, Math.floor(Math.random() * modulusx), 94, 0.2 * (Math.random() - 0.5)));
+let humans = fillWith(10, _ => new Human(humanId++, (Math.random() - 0.5) * modulusx, 94, 0.2 * (Math.random() - 0.5)));
 let projectileId = 500;
 let projectiles = [];
 let invaderProjectileId = 1000;
 let invaderProjectiles = [];
+let starfield = fillWith(50, _ => new Star(2000, (Math.random() - 0.5) * starmodulusx, Math.random() * 96, (Math.random() * 0.5) + 0.5));
 let graphics = new Map();
 let invaderTargets = new Map();
+let score = 0;
 
-let t = 0;
-
-let doGame = (fastTextMode, viewWidth, viewHeight, input, debug = false) => {
+let doGame = (fastTextMode, viewWidth, viewHeight, input, t, debug = false) => {
 
   Global.viewWidth = viewWidth;
   Global.viewHeight = viewHeight;
@@ -318,7 +357,9 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, debug = false) => {
 
   let hitEvents = checkHitInvaders(invaders, projectiles);
 
-  let playerHitEvent = checkHitPlayer(player, invaderProjectiles);
+  let playerProjectileHitEvent = checkHitPlayerProjectiles(player, invaderProjectiles);
+  let playerInvaderHitEvent = checkHitPlayerProjectiles(player, invaders);
+  let playerHumanHitEvent = checkHitPlayerHumans(player, humans);
 
   let seekingInvaderEvents = seekingInvaders.reduce((arr, i) => arr.concat(checkSeekingInvader(i, humans)), []);
   let lockedInvaderEvents = lockedInvaders.reduce((arr, i) => arr.concat(checkLockedInvader(i, invaderTargets.get(i.id))), []);
@@ -326,13 +367,12 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, debug = false) => {
 
   let invaderEvents = [].concat(hitEvents, seekingInvaderEvents, lockedInvaderEvents, abductingInvaderEvents);
 
-  let allEvents = [].concat(projectileEvents, playerHitEvent, invaderEvents);
+  let allEvents = [].concat(projectileEvents, playerProjectileHitEvent, playerInvaderHitEvent, playerHumanHitEvent, invaderEvents);
   allEvents.filter(e => e.event == Event.removeProjectile).map(e => remove(projectiles, e.id, graphics));
   allEvents.filter(e => e.event == Event.locked).map(e => invaderTargets.set(e.invaderId, e));
   allEvents.filter(e => e.event == Event.removeHuman).map(e => remove(humans, e.id, graphics));
   allEvents.filter(e => e.event == Event.playerDead).map(e => eiofjeiof());
-
-
+  allEvents.filter(e => e.event == Event.collectedHuman).map(_ => {score += 20000;});
 
 
   graphics.set(player.id, (player.state == PlayerState.faceLeft) ? Player.graphic[0] : Player.graphic[1]);
@@ -344,6 +384,7 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, debug = false) => {
   humans.map(h => graphics.set(h.id, Human.graphic));
   projectiles.map(p => graphics.set(p.id, Projectile.graphic));
   invaderProjectiles.map(p => graphics.set(p.id, Projectile.graphic2));
+  starfield.map(s => graphics.set(s.id, Star.graphic));
 
 
   // non-functional code section. game objects are updated 'in-place'
@@ -357,7 +398,7 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, debug = false) => {
   updateProjectiles(invaderProjectiles);
   // end non-functional code section
 
-  // events based on state changes must be placed after update code
+  // triggers based on state changes must be placed after state update code
 
   // abducting invaders drop human when hit
   invaders.filter(i => i.state == InvaderState.explodingReleaseHuman && i.t_startState == t)
@@ -372,7 +413,9 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, debug = false) => {
   let displacement = player.xdot;
   displacementList.map(o => {o.x = wrapx(o.x - displacement)});
 
-  let displayList = displacementList.concat(player);
+  starfield.map(o => {o.x = wrapstarx(o.x - (displacement * o.depth))});
+
+  let displayList = [].concat(starfield, displacementList, player);
 
   displayList
     .map(toLocal)
@@ -386,12 +429,10 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, debug = false) => {
       }
     });
 
+  fastTextMode.setString(30, 2, 'Score: ');
+  fastTextMode.setNumber(37, 2, score);
 
-  (player.state == PlayerState.faceLeft) ? targetoffsetx = halfmodulusx - 32 : targetoffsetx = halfmodulusx + 32;
+  (player.state == PlayerState.faceLeft) ? targetoffsetx = - 32 : targetoffsetx = 32;
   offsetx += easing * (targetoffsetx - offsetx);
-
-  // let e = checkSeekingInvaders(invaders.filter(i => i.state == InvaderState.seeking), humans);
-
-  t++;
 }
 
