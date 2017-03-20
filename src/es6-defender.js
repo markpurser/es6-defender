@@ -6,9 +6,10 @@ let InvaderState = Object.freeze({seeking:1, locked:2, abducting:3, mutant:4, ex
 let Event = Object.freeze({locked:1, abducted:2, mutated:3, dead:4, removeProjectile:5, removeHuman:6, playerDead:7, collectedHuman:8})
 
 let easing = 0.05;
-let playerXAccel = 0.8;
-let playerYAccel = 0.4;
-let playerDamping = 0.2;
+let playerAccelX = 0.3;
+let playerDampingX = 0.1;
+let playerMaxSpeedX = 3.0;
+let playerMaxSpeedY = 1.0;
 let modulusx = 512;
 let halfmodulusx = modulusx / 2;
 let starmodulusx = 256;
@@ -103,11 +104,13 @@ let wrapstarx = (x) => {
 }
 
 let updatePlayerPosition = (sv, input) => {
-  sv.xdot += playerXAccel * input.leftright;
-  sv.ydot += playerYAccel * input.updown;
+  sv.xdot += playerAccelX * input.leftright;
+  sv.ydot = playerMaxSpeedY * input.updown;
 
-  sv.xdot += playerDamping * -sv.xdot;
-  sv.ydot += playerDamping * -sv.ydot;
+  if(sv.xdot < -playerMaxSpeedX) sv.xdot = -playerMaxSpeedX;
+  if(sv.xdot > playerMaxSpeedX) sv.xdot = playerMaxSpeedX;
+
+  if(!input.leftright) sv.xdot += playerDampingX * -sv.xdot;
 
   sv.x = 0;
   sv.y += sv.ydot;
