@@ -104,6 +104,8 @@ class FastTextMode {
         }
         var index = x + y * this._options.viewWidth;
         this._worldSpriteContainer.getSprites()[index].texture = this._tileTextures[tileCode];
+
+        if( colour == -1) colour = Math.floor(Math.random() * 0xffffff);
         this._worldSpriteContainer.getSprites()[index].tint = colour;
     }
 

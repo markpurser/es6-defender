@@ -17,6 +17,7 @@ let starmodulusx = 256;
 let halfstarmodulusx = starmodulusx / 2;
 let projectileLifetime = 30;
 let debrisLifetime = 100;
+let pointsLifetime = 200;
 
 let Global = {viewWidth:0, viewHeight:0};
 
@@ -99,6 +100,17 @@ class Debris extends StateVector {
 Debris.graphic = '@';
 Debris.colour = 0xff88ff;
 
+class Points extends StateVector {
+
+  constructor(id, x, y, xdot, ydot, t_spawned, points) {
+    super(id, x, y, xdot, ydot);
+
+    this.t_spawned = t_spawned;
+    this.points = points;
+  }
+}
+
+Points.colour = -1;
 
 class Star extends StateVector {
 
@@ -110,7 +122,7 @@ class Star extends StateVector {
 }
 
 Star.graphic = '.';
-Star.colour = 0xcccccc;
+Star.colour = -1;
 
 
 let wrapx = (x) => {
@@ -322,6 +334,10 @@ let checkDebris = (debris, t) =>
   debris.filter(d => (t - d.t_spawned) > debrisLifetime)
     .map(d => ({event:Event.removeDebris, id:d.id}));
 
+let checkPoints = (points, t) =>
+  points.filter(p => (t - p.t_spawned) > pointsLifetime)
+    .map(p => ({event:Event.removePoints, id:p.id}));
+
 
 let toLocal = sv => {
   let lx = sv.x - offsetx;
@@ -360,6 +376,8 @@ let invaderProjectiles = [];
 let starfield = fillWith(50, _ => new Star(2000, (Math.random() - 0.5) * starmodulusx, Math.random() * 96, (Math.random() * 0.5) + 0.5));
 let debrisId = 3000;
 let debris = [];
+let pointsId = 5000;
+let points = [];
 let graphics = new Map();
 let invaderTargets = new Map();
 let score = 0;
@@ -413,6 +431,7 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, t, debug = false) => {
 
   let projectileEvents = checkProjectiles(projectiles, t);
   let debrisEvents = checkDebris(debris, t);
+  let pointsEvents = checkPoints(points, t);
 
   let hitEvents = checkHitInvaders(invaders, projectiles);
 
@@ -426,13 +445,14 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, t, debug = false) => {
 
   let invaderEvents = [].concat(hitEvents, seekingInvaderEvents, lockedInvaderEvents, abductingInvaderEvents);
 
-  let allEvents = [].concat(projectileEvents, playerProjectileHitEvent, playerInvaderHitEvent, playerHumanHitEvent, invaderEvents, debrisEvents);
+  let allEvents = [].concat(projectileEvents, playerProjectileHitEvent, playerInvaderHitEvent, playerHumanHitEvent, invaderEvents, debrisEvents, pointsEvents);
   allEvents.filter(e => e.event == Event.removeProjectile).map(e => remove(projectiles, e.id, graphics));
   allEvents.filter(e => e.event == Event.removeDebris).map(e => remove(debris, e.id, graphics));
+  allEvents.filter(e => e.event == Event.removePoints).map(e => remove(points, e.id, graphics));
   allEvents.filter(e => e.event == Event.locked).map(e => invaderTargets.set(e.invaderId, e));
   allEvents.filter(e => e.event == Event.removeHuman).map(e => remove(humans, e.id, graphics));
   allEvents.filter(e => e.event == Event.playerDead).map(e => eiofjeiof());
-  allEvents.filter(e => e.event == Event.collectedHuman).map(_ => {score += 20000;});
+  allEvents.filter(e => e.event == Event.collectedHuman).map(_ => {score += 20000; points.push(new Points(pointsId++, player.x, player.y, 0.01, 0.01, t, '20000'));});
 
 
   graphics.set(player.id, (player.state == PlayerState.faceLeft) ? Player.graphic[0] : Player.graphic[1]);
@@ -446,6 +466,7 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, t, debug = false) => {
   invaderProjectiles.map(p => graphics.set(p.id, Projectile.graphic2));
   starfield.map(s => graphics.set(s.id, Star.graphic));
   debris.map(d => graphics.set(d.id, Debris.graphic));
+  points.map(p => graphics.set(p.id, p.points));
 
 
   // non-functional code section. game objects are updated 'in-place'
@@ -458,6 +479,7 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, t, debug = false) => {
   updateProjectiles(projectiles);
   updateProjectiles(invaderProjectiles);
   updateDebris(debris);
+  updateProjectiles(points);
   // end non-functional code section
 
   // triggers based on state changes must be placed after state update code
@@ -483,7 +505,7 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, t, debug = false) => {
     });
 
 
-  let displacementList = [].concat(invaders, humans, projectiles, invaderProjectiles, debris);
+  let displacementList = [].concat(invaders, humans, projectiles, invaderProjectiles, debris, points);
 
   let displacement = player.xdot;
   displacementList.map(o => {o.x = wrapx(o.x - displacement)});
