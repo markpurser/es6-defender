@@ -15,7 +15,7 @@ let modulusx = 512;
 let halfmodulusx = modulusx / 2;
 let starmodulusx = 256;
 let halfstarmodulusx = starmodulusx / 2;
-let projectileLifetime = 50;
+let projectileLifetime = 30;
 let debrisLifetime = 100;
 
 let Global = {viewWidth:0, viewHeight:0};
@@ -42,7 +42,8 @@ class Player extends StateVector {
 }
 
 Player.sideLen = 3;
-Player.graphic = ['  /\n<--', '\\  \n-->']; 
+Player.graphic = ['  /\n<--', '\\  \n-->'];
+Player.colour = 0x00ccff;
 
 class Invader extends StateVector {
   
@@ -57,6 +58,8 @@ class Invader extends StateVector {
 Invader.sideLen = 4;
 Invader.graphic = '^^^^\n[[]]\n[[]]\n[[]]';
 Invader.graphicAbducting = '^^^^\n[[]]\n[[]]\n[[]]\n HH \n HH';
+Invader.colour = 0x00ff00;
+Invader.colourAbducting = 0x00ff00;
 
 class Human extends StateVector {
 
@@ -67,6 +70,7 @@ class Human extends StateVector {
 
 Human.sideLen = 2;
 Human.graphic = 'HH\nHH';
+Human.colour = 0x00aa99;
 
 class Projectile extends StateVector {
 
@@ -80,6 +84,8 @@ class Projectile extends StateVector {
 Projectile.sideLen = 2;
 Projectile.graphic = '--';
 Projectile.graphic2 = '**\n**';
+Projectile.colour = 0xffff00;
+Projectile.colour2 = 0xffcc00;
 
 class Debris extends StateVector {
 
@@ -91,6 +97,7 @@ class Debris extends StateVector {
 }
 
 Debris.graphic = '@';
+Debris.colour = 0xff88ff;
 
 
 class Star extends StateVector {
@@ -103,6 +110,7 @@ class Star extends StateVector {
 }
 
 Star.graphic = '.';
+Star.colour = 0xcccccc;
 
 
 let wrapx = (x) => {
@@ -355,6 +363,17 @@ let debris = [];
 let graphics = new Map();
 let invaderTargets = new Map();
 let score = 0;
+let colours = new Map([
+  [Player.graphic[0], Player.colour],
+  [Player.graphic[1], Player.colour],
+  [Invader.graphic, Invader.colour],
+  [Invader.graphicAbducting, Invader.colourAbducting],
+  [Human.graphic, Human.colour],
+  [Projectile.graphic, Projectile.colour],
+  [Projectile.graphic2, Projectile.colour2],
+  [Debris.graphic, Debris.colour],
+  [Star.graphic, Star.colour]
+]);
 
 let doGame = (fastTextMode, viewWidth, viewHeight, input, t, debug = false) => {
 
@@ -372,8 +391,13 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, t, debug = false) => {
   let mutantInvaders = invaders.filter(i => i.state == InvaderState.mutant);
 
   seekingInvaders.map(i => {
-    if(Math.random() < 0.01) {
-      invaderProjectiles.push(new Projectile(invaderProjectileId++, i.x, i.y, Math.random() - 0.5, Math.random() - 0.5, t));
+    let dx = player.x - i.x;
+    if(Math.random() < 0.01 && Math.abs(dx) < (Global.viewWidth / 3)) {
+      let dy = player.y - i.y;
+      let l = Math.sqrt(dx * dx + dy * dy);
+      let unitdx = dx / l;
+      let unitdy = dy / l;
+      invaderProjectiles.push(new Projectile(invaderProjectileId++, i.x, i.y, unitdx, unitdy, t));
     }
   });
 
@@ -442,8 +466,10 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, t, debug = false) => {
   invaders.filter(i => i.state == InvaderState.explodingReleaseHuman && i.t_startState == t)
     .map(i => humans.push(new Human(humanId++, i.x+2, i.y, 0, 0.1)));
 
+  // invader explosion
   invaders.filter(i => i.state == InvaderState.explodingReleaseHuman || i.state == InvaderState.exploding && i.t_startState == t)
     .map(i => {
+      score += 1000;
       remove(invaders, i.id, graphics);
       debris.push(new Debris(debrisId++, i.x, i.y,  0.7, 0.7, t));
       debris.push(new Debris(debrisId++, i.x, i.y,  1,  0, t));
@@ -470,7 +496,9 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, t, debug = false) => {
     .map(toLocal)
     .filter(clip)
     .map(i => {
-      fastTextMode.setString(Math.floor(i.lx), Math.floor(i.ly), graphics.has(i.id) ? graphics.get(i.id) : '!')
+      let g = graphics.has(i.id) ? graphics.get(i.id) : '!';
+      let c = colours.has(g) ? colours.get(g) : 0xffffff;
+      fastTextMode.setString(Math.floor(i.lx), Math.floor(i.ly), g, c)
       if(debug) {
         // overlay object id and x coordinate
         fastTextMode.setNumber(Math.floor(i.lx+3), Math.floor(i.ly), i.id)

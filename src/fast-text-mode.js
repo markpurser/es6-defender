@@ -95,7 +95,7 @@ class FastTextMode {
         }
     }
 
-    set(x, y, tileCode) {
+    set(x, y, tileCode, colour = 0xffffff) {
         if(x < 0 || x >= this._options.viewWidth || y < 0 || y >= this._options.viewHeight) return;
 
         if(typeof(tileCode) === 'string')
@@ -104,9 +104,10 @@ class FastTextMode {
         }
         var index = x + y * this._options.viewWidth;
         this._worldSpriteContainer.getSprites()[index].texture = this._tileTextures[tileCode];
+        this._worldSpriteContainer.getSprites()[index].tint = colour;
     }
 
-    setString(x, y, tileString) {
+    setString(x, y, tileString, colour = 0xffffff) {
         var X = x;
         for(var c = 0; c < tileString.length; c++) {
             var tileCode = tileString.codePointAt(c);
@@ -115,14 +116,14 @@ class FastTextMode {
                 x = X;
             }
             else {
-                this.set(x, y, tileCode);
+                this.set(x, y, tileCode, colour);
                 x++;
             }
         }
     }
 
-    setNumber(x, y, number) {
-        this.setString(x, y, number.toString());
+    setNumber(x, y, number, colour = 0xffffff) {
+        this.setString(x, y, number.toString(), colour);
     }
 
     updateStats(stats) {
