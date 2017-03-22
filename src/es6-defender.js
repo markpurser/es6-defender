@@ -3,18 +3,20 @@ let PlayerState = Object.freeze({faceLeft:1, faceRight:2, exploding:3})
 
 let InvaderState = Object.freeze({seeking:1, locked:2, abducting:3, mutant:4, exploding:5, explodingReleaseHuman:6})
 
-let Event = Object.freeze({locked:1, abducted:2, mutated:3, dead:4, removeProjectile:5, removeHuman:6, playerDead:7, collectedHuman:8})
+let Event = Object.freeze({locked:1, abducted:2, mutated:3, dead:4, removeProjectile:5, removeHuman:6, playerDead:7, collectedHuman:8, removeDebris:9})
 
 let easing = 0.05;
-let playerAccelX = 0.3;
+let playerAccelX = 0.2;
 let playerDampingX = 0.1;
-let playerMaxSpeedX = 3.0;
-let playerMaxSpeedY = 1.0;
+let playerMaxSpeedX = 1.9;
+let playerMaxSpeedY = 0.7;
+let debrisDamping = 0.01;
 let modulusx = 512;
 let halfmodulusx = modulusx / 2;
 let starmodulusx = 256;
 let halfstarmodulusx = starmodulusx / 2;
 let projectileLifetime = 50;
+let debrisLifetime = 100;
 
 let Global = {viewWidth:0, viewHeight:0};
 
@@ -79,6 +81,18 @@ Projectile.sideLen = 2;
 Projectile.graphic = '--';
 Projectile.graphic2 = '**\n**';
 
+class Debris extends StateVector {
+
+  constructor(id, x, y, xdot, ydot, t_spawned) {
+    super(id, x, y, xdot, ydot);
+
+    this.t_spawned = t_spawned;
+  }
+}
+
+Debris.graphic = '@';
+
+
 class Star extends StateVector {
 
   constructor(id, x, y, depth) {
@@ -110,7 +124,7 @@ let updatePlayerPosition = (sv, input) => {
   if(sv.xdot < -playerMaxSpeedX) sv.xdot = -playerMaxSpeedX;
   if(sv.xdot > playerMaxSpeedX) sv.xdot = playerMaxSpeedX;
 
-  if(!input.leftright) sv.xdot += playerDampingX * -sv.xdot;
+  if(!input.leftright) sv.xdot += -playerDampingX * sv.xdot;
 
   sv.x = 0;
   sv.y += sv.ydot;
@@ -211,6 +225,17 @@ let updateProjectilePosition = (sv) => {
 
 let updateProjectiles = (projectiles) => projectiles.map(updateProjectilePosition);
 
+let updateDebrisPosition = (d) => {
+  updateProjectilePosition(d);
+
+  d.xdot += -debrisDamping * d.xdot;
+  d.ydot += -debrisDamping * d.ydot;
+
+  return d;
+}
+
+let updateDebris = (debris) => debris.map(updateDebrisPosition);
+
 let cartesianProduct2 = (arr1, arr2) =>
   arr1.map(e1 => arr2.map(e2 => [e1, e2])).reduce((arr, e) => arr.concat(e), []);
 
@@ -285,6 +310,10 @@ let checkProjectiles = (projectiles, t) =>
   projectiles.filter(p => (t - p.t_spawned) > projectileLifetime)
     .map(p => ({event:Event.removeProjectile, id:p.id}));
 
+let checkDebris = (debris, t) =>
+  debris.filter(d => (t - d.t_spawned) > debrisLifetime)
+    .map(d => ({event:Event.removeDebris, id:d.id}));
+
 
 let toLocal = sv => {
   let lx = sv.x - offsetx;
@@ -313,7 +342,7 @@ let targetoffsetx = 0;
 let playerId = 1;
 let invaderId = 100;
 let player = new Player(playerId, 0, 96 / 2, PlayerState.faceRight, 0);
-let invaders = fillWith(10, _ => new Invader(invaderId++, (Math.random() - 0.5) * modulusx, 96 / 2, InvaderState.seeking, 0));
+let invaders = fillWith(10, _ => new Invader(invaderId++, (((Math.random() * 0.8) + 0.2) * halfmodulusx) * [1,-1][Math.floor(Math.random()*2)], 96 / 2, InvaderState.seeking, 0));
 let humanId = 200;
 let humans = fillWith(10, _ => new Human(humanId++, (Math.random() - 0.5) * modulusx, 94, 0.2 * (Math.random() - 0.5)));
 let projectileId = 500;
@@ -321,6 +350,8 @@ let projectiles = [];
 let invaderProjectileId = 1000;
 let invaderProjectiles = [];
 let starfield = fillWith(50, _ => new Star(2000, (Math.random() - 0.5) * starmodulusx, Math.random() * 96, (Math.random() * 0.5) + 0.5));
+let debrisId = 3000;
+let debris = [];
 let graphics = new Map();
 let invaderTargets = new Map();
 let score = 0;
@@ -357,6 +388,7 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, t, debug = false) => {
 
 
   let projectileEvents = checkProjectiles(projectiles, t);
+  let debrisEvents = checkDebris(debris, t);
 
   let hitEvents = checkHitInvaders(invaders, projectiles);
 
@@ -370,8 +402,9 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, t, debug = false) => {
 
   let invaderEvents = [].concat(hitEvents, seekingInvaderEvents, lockedInvaderEvents, abductingInvaderEvents);
 
-  let allEvents = [].concat(projectileEvents, playerProjectileHitEvent, playerInvaderHitEvent, playerHumanHitEvent, invaderEvents);
+  let allEvents = [].concat(projectileEvents, playerProjectileHitEvent, playerInvaderHitEvent, playerHumanHitEvent, invaderEvents, debrisEvents);
   allEvents.filter(e => e.event == Event.removeProjectile).map(e => remove(projectiles, e.id, graphics));
+  allEvents.filter(e => e.event == Event.removeDebris).map(e => remove(debris, e.id, graphics));
   allEvents.filter(e => e.event == Event.locked).map(e => invaderTargets.set(e.invaderId, e));
   allEvents.filter(e => e.event == Event.removeHuman).map(e => remove(humans, e.id, graphics));
   allEvents.filter(e => e.event == Event.playerDead).map(e => eiofjeiof());
@@ -388,6 +421,7 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, t, debug = false) => {
   projectiles.map(p => graphics.set(p.id, Projectile.graphic));
   invaderProjectiles.map(p => graphics.set(p.id, Projectile.graphic2));
   starfield.map(s => graphics.set(s.id, Star.graphic));
+  debris.map(d => graphics.set(d.id, Debris.graphic));
 
 
   // non-functional code section. game objects are updated 'in-place'
@@ -399,6 +433,7 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, t, debug = false) => {
   updateHumans(humans);
   updateProjectiles(projectiles);
   updateProjectiles(invaderProjectiles);
+  updateDebris(debris);
   // end non-functional code section
 
   // triggers based on state changes must be placed after state update code
@@ -408,10 +443,21 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, t, debug = false) => {
     .map(i => humans.push(new Human(humanId++, i.x+2, i.y, 0, 0.1)));
 
   invaders.filter(i => i.state == InvaderState.explodingReleaseHuman || i.state == InvaderState.exploding && i.t_startState == t)
-    .map(i => remove(invaders, i.id, graphics));
+    .map(i => {
+      remove(invaders, i.id, graphics);
+      debris.push(new Debris(debrisId++, i.x, i.y,  0.7, 0.7, t));
+      debris.push(new Debris(debrisId++, i.x, i.y,  1,  0, t));
+      debris.push(new Debris(debrisId++, i.x, i.y,  0.7, -0.7, t));
+      debris.push(new Debris(debrisId++, i.x, i.y,  0, -1, t));
+      debris.push(new Debris(debrisId++, i.x, i.y, -0.7, -0.7, t));
+      debris.push(new Debris(debrisId++, i.x, i.y, -1, 0, t));
+      debris.push(new Debris(debrisId++, i.x, i.y, -0.7,  0.7, t));
+      debris.push(new Debris(debrisId++, i.x, i.y, 0,  1, t));
+      if(debrisId >= 4000) debrisId = 3000;
+    });
 
 
-  let displacementList = [].concat(invaders, humans, projectiles, invaderProjectiles);
+  let displacementList = [].concat(invaders, humans, projectiles, invaderProjectiles, debris);
 
   let displacement = player.xdot;
   displacementList.map(o => {o.x = wrapx(o.x - displacement)});
