@@ -66,7 +66,7 @@ class FastTextMode {
                 }
 
                 _this._worldSpriteContainer = new SpriteGrid(
-                    options.viewWidth, options.viewHeight, options.tileWidthPx, options.tileHeightPx, _this._tileTextures['.'.codePointAt(0)]);
+                    options.viewWidth, options.viewHeight, options.tileWidthPx, options.tileHeightPx, _this._tileTextures[' '.codePointAt(0)]);
 
                 _this._parentContainer.addChild(_this._worldSpriteContainer.getSpriteContainer());
                 _this._parentContainer.addChild(_this._stats.fpsText);
@@ -86,11 +86,13 @@ class FastTextMode {
         this._renderer.render(this._parentContainer);
 
         // clear screen
+        var sprites = this._worldSpriteContainer.getSprites();
         for(var x = 0; x < this._options.viewWidth; x++)
         {
             for(var y = 0; y < this._options.viewHeight; y++)
             {
-                this.set(x, y, ' ');
+                var index = x + y * this._options.viewWidth;
+                sprites[index].texture = this._tileTextures[32];
             }
         }
     }

@@ -73,7 +73,7 @@
                     audio.play();
                 }
 
-                sound('1up');
+                resetGame(viewWidth, viewHeight, function(){});
 
                 var spaceLatch = 0;
                 var pauseLatch = 0;
@@ -147,7 +147,7 @@
                         var soundPlayer = function(){};
                         if(soundOn) soundPlayer = sound;
 
-                        doGame(fastTextMode, viewWidth, viewHeight, input, soundPlayer, clock++, dt, false);
+                        doGame(fastTextMode, input, soundPlayer, clock++, dt, false);
 
                         fastTextMode.setString(viewWidth - 40, 2, 'p - pause game');
 

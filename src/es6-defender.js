@@ -5,19 +5,20 @@ let InvaderState = Object.freeze({seeking:1, locked:2, abducting:3, mutant:4, ex
 
 let Event = Object.freeze({locked:1, abducted:2, mutated:3, dead:4, removeProjectile:5, removeHuman:6, playerDead:7, collectedHuman:8, removeDebris:9})
 
-let easing = 0.05;
-let playerAccelX = 720;
-let playerDampingX = 6;
-let playerMaxSpeedX = 114;
-let playerMaxSpeedY = 42;
-let debrisDamping = 0.6;
-let modulusx = 512;
-let halfmodulusx = modulusx / 2;
-let starmodulusx = 256;
-let halfstarmodulusx = starmodulusx / 2;
-let projectileLifetime = 30;
-let debrisLifetime = 100;
-let pointsLifetime = 200;
+const easing = 0.05;
+const playerAccelX = 720;
+const playerDampingX = 6;
+const playerMaxSpeedX = 114;
+const playerMaxSpeedY = 42;
+const debrisDamping = 0.6;
+const modulusx = 512;
+const halfmodulusx = modulusx / 2;
+const starmodulusx = 384;
+const halfstarmodulusx = starmodulusx / 2;
+const projectileLifetime = 60;
+const debrisLifetime = 100;
+const pointsLifetime = 200;
+const groundOffset = 6;
 
 let Global = {viewWidth:0, viewHeight:0};
 
@@ -290,7 +291,7 @@ let detectCollisions = (svArr1, size1, svArr2, size2) =>
 let checkSeekingInvader = (invader, humans) => {
   let inRangeHumans = humans.filter(h => xoverlap(invader.x, Invader.sideLen, h.x, Human.sideLen));
   if(inRangeHumans.length > 0) {
-    if(Math.random() < 0.1) {
+    if(Math.random() < 0.05) {
       return [{event:Event.locked, invaderId:invader.id, humanId:inRangeHumans[0].id, humanXDot:inRangeHumans[0].xdot}];
     }
   }
@@ -298,7 +299,7 @@ let checkSeekingInvader = (invader, humans) => {
 }
 
 let checkLockedInvader = (invader, e) => {
-  return ((invader.y + Invader.sideLen) >= Global.viewHeight) ?
+  return ((invader.y + Invader.sideLen) >= Global.viewHeight - groundOffset) ?
     [{event:Event.abducted, invaderId:invader.id, humanId:e.humanId},
      {event:Event.removeHuman, id:e.humanId}] :
     [];
@@ -370,29 +371,55 @@ let fillWith = (n, f) => Array(n).fill().map(f);
 
 let offsetx = 0;
 let targetoffsetx = 0;
-let playerId = 1;
-let invaderId = 100;
-let player = new Player(playerId, 0, 96 / 2, PlayerState.faceRight, 0);
-let invaders = fillWith(10, _ => new Invader(invaderId++, (((Math.random() * 0.8) + 0.2) * halfmodulusx) * [1,-1][Math.floor(Math.random()*2)], 96 / 2, InvaderState.seeking, 0));
-let humanId = 200;
-let humans = fillWith(10, _ => new Human(humanId++, (Math.random() - 0.5) * modulusx, 94, 12 * (Math.random() - 0.5)));
-let projectileId = 500;
-let projectiles = [];
-let invaderProjectileId = 1000;
-let invaderProjectiles = [];
-let starfield = fillWith(50, _ => new Star(2000, (Math.random() - 0.5) * starmodulusx, Math.random() * 96, (Math.random() * 0.5) + 0.5));
-let debrisId = 3000;
-let debris = [];
-let pointsId = 5000;
-let points = [];
-let graphics = new Map();
-let invaderTargets = new Map();
-let score = 0;
+let playerId = null;
+let invaderId = null;
+let player = null;
+let invaders = null;
+let humanId = null;
+let humans = null;
+let projectileId = null;
+let projectiles = null;
+let invaderProjectileId = null;
+let invaderProjectiles = null;
+let starfield = null;
+let debrisId = null;
+let debris = null;
+let pointsId = null;
+let points = null;
+let graphics = null;
+let invaderTargets = null;
+let score = null;
 
-let doGame = (fastTextMode, viewWidth, viewHeight, input, sound, t, dt, debug = false) => {
+let resetGame = (viewWidth, viewHeight, sound) => {
 
   Global.viewWidth = viewWidth;
   Global.viewHeight = viewHeight;
+
+  playerId = 1;
+  invaderId = 100;
+  player = new Player(playerId, 0, viewHeight / 2, PlayerState.faceRight, 0);
+  invaders = fillWith(10, _ => new Invader(invaderId++, (((Math.random() * 0.8) + 0.2) * halfmodulusx) * [1,-1][Math.floor(Math.random()*2)], viewHeight / 2, InvaderState.seeking, 0));
+  humanId = 200;
+  humans = fillWith(10, _ => new Human(humanId++, (Math.random() - 0.5) * modulusx, viewHeight - groundOffset, 12 * (Math.random() - 0.5)));
+  projectileId = 500;
+  projectiles = [];
+  invaderProjectileId = 1000;
+  invaderProjectiles = [];
+  starfield = fillWith(50, _ => new Star(2000, (Math.random() - 0.5) * starmodulusx, Math.random() * viewHeight, (Math.random() * 0.5) + 0.5));
+  debrisId = 3000;
+  debris = [];
+  pointsId = 5000;
+  points = [];
+  graphics = new Map();
+  invaderTargets = new Map();
+  score = 0;
+
+  sound('1up');
+}
+
+
+
+let doGame = (fastTextMode, input, sound, t, dt, debug = false) => {
 
   if(input.fire) {
     sound('zap');
@@ -544,7 +571,7 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, sound, t, dt, debug = 
   fastTextMode.setString(50, 2, 'Score: ');
   fastTextMode.setNumber(57, 2, score);
 
-  (player.state == PlayerState.faceLeft) ? targetoffsetx = - 32 : targetoffsetx = 32;
+  (player.state == PlayerState.faceLeft) ? targetoffsetx = - Global.viewWidth * 0.3 : targetoffsetx = Global.viewWidth * 0.3;
   offsetx += easing * (targetoffsetx - offsetx);
 }
 
