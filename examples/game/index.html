@@ -34,12 +34,23 @@
     <script>
         function init()
         {
-            var viewWidth = 128, viewHeight = 96;
+            var canvas = document.getElementById("render-canvas");
+            canvas.width = window.innerWidth-10;
+            canvas.height = window.innerHeight-10;
+
+            var tileWidthPx = 8;
+            var tileHeightPx = 8;
+
+            var viewWidth = Math.floor(canvas.width / tileWidthPx);
+            var viewHeight = Math.floor(canvas.height / tileHeightPx);
 
             var fastTextMode = new FastTextMode;
             fastTextMode.init({
                 renderCanvas: document.getElementById("render-canvas"),
-                renderCanvasSize: {width: 1100, height: 900},
+                renderCanvasSize: {width: canvas.width, height: canvas.height},
+                tilesheetImage: "assets/terminal.png",
+                tileWidthPx: tileWidthPx,
+                tileHeightPx: tileHeightPx,
                 viewWidth: viewWidth,
                 viewHeight: viewHeight
             })
@@ -47,7 +58,7 @@
                 keyboard = new Keyboard();
                 playerX = 0;
                 playerY = 0;
-                t = 0;
+                clock = 0;
 
                 var sound = function(type) {
                     var file = '';
@@ -69,9 +80,14 @@
                 var soundLatch = 0;
                 var paused = false;
                 var soundOn = false;
+                var lastTime = null;
 
-                function animate()
+                function animate(timestamp)
                 {
+                    if (!lastTime) lastTime = timestamp;
+                    var dt = (timestamp - lastTime) / 1000;
+                    lastTime = timestamp;
+
                     var input = {updown: 0, leftright: 0, fire: 0};
 
                     if(keyboard.isKeyPressed(Keyboard.KEYS.UP))
@@ -131,7 +147,7 @@
                         var soundPlayer = function(){};
                         if(soundOn) soundPlayer = sound;
 
-                        doGame(fastTextMode, viewWidth, viewHeight, input, soundPlayer, t++, false);
+                        doGame(fastTextMode, viewWidth, viewHeight, input, soundPlayer, clock++, dt, false);
 
                         fastTextMode.setString(viewWidth - 40, 2, 'p - pause game');
 

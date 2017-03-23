@@ -6,11 +6,11 @@ let InvaderState = Object.freeze({seeking:1, locked:2, abducting:3, mutant:4, ex
 let Event = Object.freeze({locked:1, abducted:2, mutated:3, dead:4, removeProjectile:5, removeHuman:6, playerDead:7, collectedHuman:8, removeDebris:9})
 
 let easing = 0.05;
-let playerAccelX = 0.2;
-let playerDampingX = 0.1;
-let playerMaxSpeedX = 1.9;
-let playerMaxSpeedY = 0.7;
-let debrisDamping = 0.01;
+let playerAccelX = 720;
+let playerDampingX = 6;
+let playerMaxSpeedX = 114;
+let playerMaxSpeedY = 42;
+let debrisDamping = 0.6;
 let modulusx = 512;
 let halfmodulusx = modulusx / 2;
 let starmodulusx = 256;
@@ -138,17 +138,17 @@ let wrapstarx = (x) => {
   return x;
 }
 
-let updatePlayerPosition = (sv, input) => {
-  sv.xdot += playerAccelX * input.leftright;
+let updatePlayerPosition = (sv, input, dt) => {
+  sv.xdot += playerAccelX * input.leftright * dt;
   sv.ydot = playerMaxSpeedY * input.updown;
 
   if(sv.xdot < -playerMaxSpeedX) sv.xdot = -playerMaxSpeedX;
   if(sv.xdot > playerMaxSpeedX) sv.xdot = playerMaxSpeedX;
 
-  if(!input.leftright) sv.xdot += -playerDampingX * sv.xdot;
+  if(!input.leftright) sv.xdot += -playerDampingX * sv.xdot * dt;
 
   sv.x = 0;
-  sv.y += sv.ydot;
+  sv.y += sv.ydot * dt;
 
   if(sv.y < 0) sv.y = 0;
   if(sv.y > Global.viewHeight - 5) sv.y = Global.viewHeight - 5;
@@ -162,38 +162,38 @@ let updatePlayerState = (player, input) => {
   }
 }
 
-let updateInvaderPosition = (sv, state, targetx, targety) => {
+let updateInvaderPosition = (sv, state, targetx, targety, dt) => {
   let a = {
       [InvaderState.seeking]: () => {
-        sv.xdot += 0.02 * (Math.random() - 0.5);
-        sv.ydot += 0.02 * (Math.random() - 0.5);
-        sv.x += sv.xdot;
-        sv.y += sv.ydot;
+        sv.xdot += 72 * (Math.random() - 0.5) * dt;
+        sv.ydot += 72 * (Math.random() - 0.5) * dt;
+        sv.x += sv.xdot * dt;
+        sv.y += sv.ydot * dt;
 
         if(sv.y < 5) { sv.ydot = -sv.ydot; sv.y = 5; }
         if(sv.y > (Global.viewHeight - 5)) { sv.ydot = -sv.ydot; sv.y = (Global.viewHeight - 5); }
       },
       [InvaderState.locked]: () => {
         sv.xdot = targetx;
-        sv.ydot = 0.2;
+        sv.ydot = 12;
 
-        sv.x += sv.xdot;
-        sv.y += sv.ydot;
+        sv.x += sv.xdot * dt;
+        sv.y += sv.ydot * dt;
       },
       [InvaderState.abducting]: () => {
-        sv.ydot = -0.2;
+        sv.ydot = -12;
 
-        sv.y += sv.ydot;
+        sv.y += sv.ydot * dt;
       },
       [InvaderState.mutant]: () => {
-        sv.xdot += (targetx - sv.x) > 0 ? 0.02 : -0.02;
-        sv.ydot += (targety - sv.y) > 0 ? 0.02 : -0.02;
+        sv.xdot += dt * (targetx - sv.x) > 0 ? 1.2 : -1.2;
+        sv.ydot += dt * (targety - sv.y) > 0 ? 1.2 : -1.2;
 
-        sv.xdot += -0.02 * sv.xdot;
-        sv.ydot += -0.02 * sv.ydot;
+        sv.xdot += -1.2 * sv.xdot * dt;
+        sv.ydot += -1.2 * sv.ydot * dt;
 
-        sv.x += sv.xdot;
-        sv.y += sv.ydot;
+        sv.x += sv.xdot * dt;
+        sv.y += sv.ydot * dt;
       },
       [InvaderState.exploding]: () => {
       },
@@ -204,7 +204,7 @@ let updateInvaderPosition = (sv, state, targetx, targety) => {
   return sv;
 }
 
-let updateInvaders = (invaders, invaderTargets, player) =>
+let updateInvaders = (invaders, invaderTargets, player, dt) =>
   invaders.map(i => {
     let targetx = 0, targety = 0;
     if(i.state == InvaderState.mutant) {
@@ -214,7 +214,7 @@ let updateInvaders = (invaders, invaderTargets, player) =>
     else if(invaderTargets.has(i.id)) {
       targetx = invaderTargets.get(i.id).humanXDot;
     }
-    updateInvaderPosition(i, i.state, targetx, targety);
+    updateInvaderPosition(i, i.state, targetx, targety, dt);
   });
 
 let updateInvaderState = (invaders, events, t) => {
@@ -234,34 +234,34 @@ let updateInvaderState = (invaders, events, t) => {
   })
 }
 
-let updateHumanPosition = (sv) => {
-  sv.x += sv.xdot;
-  sv.y += sv.ydot;
+let updateHumanPosition = (sv, dt) => {
+  sv.x += sv.xdot * dt;
+  sv.y += sv.ydot * dt;
 
   return sv;
 }
 
-let updateHumans = (humans) => humans.map(updateHumanPosition);
+let updateHumans = (humans, dt) => humans.map(h => updateHumanPosition(h, dt));
 
-let updateProjectilePosition = (sv) => {
-  sv.x += sv.xdot;
-  sv.y += sv.ydot;
+let updateProjectilePosition = (sv, dt) => {
+  sv.x += sv.xdot * dt;
+  sv.y += sv.ydot * dt;
 
   return sv;
 }
 
-let updateProjectiles = (projectiles) => projectiles.map(updateProjectilePosition);
+let updateProjectiles = (projectiles, dt) => projectiles.map(p => updateProjectilePosition(p, dt));
 
-let updateDebrisPosition = (d) => {
-  updateProjectilePosition(d);
+let updateDebrisPosition = (d, dt) => {
+  updateProjectilePosition(d, dt);
 
-  d.xdot += -debrisDamping * d.xdot;
-  d.ydot += -debrisDamping * d.ydot;
+  d.xdot += -debrisDamping * d.xdot * dt;
+  d.ydot += -debrisDamping * d.ydot * dt;
 
   return d;
 }
 
-let updateDebris = (debris) => debris.map(updateDebrisPosition);
+let updateDebris = (debris, dt) => debris.map(d => updateDebrisPosition(d, dt));
 
 let cartesianProduct2 = (arr1, arr2) =>
   arr1.map(e1 => arr2.map(e2 => [e1, e2])).reduce((arr, e) => arr.concat(e), []);
@@ -375,7 +375,7 @@ let invaderId = 100;
 let player = new Player(playerId, 0, 96 / 2, PlayerState.faceRight, 0);
 let invaders = fillWith(10, _ => new Invader(invaderId++, (((Math.random() * 0.8) + 0.2) * halfmodulusx) * [1,-1][Math.floor(Math.random()*2)], 96 / 2, InvaderState.seeking, 0));
 let humanId = 200;
-let humans = fillWith(10, _ => new Human(humanId++, (Math.random() - 0.5) * modulusx, 94, 0.2 * (Math.random() - 0.5)));
+let humans = fillWith(10, _ => new Human(humanId++, (Math.random() - 0.5) * modulusx, 94, 12 * (Math.random() - 0.5)));
 let projectileId = 500;
 let projectiles = [];
 let invaderProjectileId = 1000;
@@ -389,14 +389,14 @@ let graphics = new Map();
 let invaderTargets = new Map();
 let score = 0;
 
-let doGame = (fastTextMode, viewWidth, viewHeight, input, sound, t, debug = false) => {
+let doGame = (fastTextMode, viewWidth, viewHeight, input, sound, t, dt, debug = false) => {
 
   Global.viewWidth = viewWidth;
   Global.viewHeight = viewHeight;
 
   if(input.fire) {
     sound('zap');
-    projectiles.push(new Projectile(projectileId++, player.x, player.y+2, (player.state == PlayerState.faceLeft) ? -4 : 4, 0, t));
+    projectiles.push(new Projectile(projectileId++, player.x, player.y+2, (player.state == PlayerState.faceLeft) ? -240 : 240, 0, t));
     if(projectileId >= 1000) projectileId = 500;
   }
 
@@ -412,7 +412,7 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, sound, t, debug = fals
       let l = Math.sqrt(dx * dx + dy * dy);
       let unitdx = dx / l;
       let unitdy = dy / l;
-      invaderProjectiles.push(new Projectile(invaderProjectileId++, i.x, i.y, unitdx, unitdy, t));
+      invaderProjectiles.push(new Projectile(invaderProjectileId++, i.x, i.y, unitdx * 60, unitdy * 60, t));
     }
   });
 
@@ -423,10 +423,10 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, sound, t, debug = fals
       let l = Math.sqrt(dx * dx + dy * dy);
       let unitdx = dx / l;
       let unitdy = dy / l;
-      invaderProjectiles.push(new Projectile(invaderProjectileId++, i.x, i.y, unitdx, unitdy, t));
+      invaderProjectiles.push(new Projectile(invaderProjectileId++, i.x, i.y, unitdx * 60, unitdy * 60, t));
     }
     if(Math.random() < 0.02) {
-      invaderProjectiles.push(new Projectile(invaderProjectileId++, i.x, i.y, Math.random() - 0.5, Math.random() - 0.5, t));
+      invaderProjectiles.push(new Projectile(invaderProjectileId++, i.x, i.y, (Math.random() - 0.5) * 60, (Math.random() - 0.5) * 60, t));
     }
   });
 
@@ -471,20 +471,20 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, sound, t, debug = fals
   updatePlayerState(player, input);
   updateInvaderState(invaders, invaderEvents, t);
 
-  updatePlayerPosition(player, input);
-  updateInvaders(invaders, invaderTargets, player);
-  updateHumans(humans);
-  updateProjectiles(projectiles);
-  updateProjectiles(invaderProjectiles);
-  updateDebris(debris);
-  updateProjectiles(points);
+  updatePlayerPosition(player, input, dt);
+  updateInvaders(invaders, invaderTargets, player, dt);
+  updateHumans(humans, dt);
+  updateProjectiles(projectiles, dt);
+  updateProjectiles(invaderProjectiles, dt);
+  updateDebris(debris, dt);
+  updateProjectiles(points, dt);
   // end non-functional code section
 
   // triggers based on state changes must be placed after state update code
 
   // abducting invaders drop human when hit
   invaders.filter(i => i.state == InvaderState.explodingReleaseHuman && i.t_startState == t)
-    .map(i => humans.push(new Human(humanId++, i.x+2, i.y, 0, 0.1)));
+    .map(i => humans.push(new Human(humanId++, i.x+2, i.y, 0, 6)));
 
   // invader explosion
   invaders.filter(i => i.state == InvaderState.explodingReleaseHuman || i.state == InvaderState.exploding && i.t_startState == t)
@@ -492,14 +492,14 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, sound, t, debug = fals
       sound('boom');
       score += 1000;
       remove(invaders, i.id, graphics);
-      debris.push(new Debris(debrisId++, i.x, i.y,  0.7, 0.7, t));
-      debris.push(new Debris(debrisId++, i.x, i.y,  1,  0, t));
-      debris.push(new Debris(debrisId++, i.x, i.y,  0.7, -0.7, t));
-      debris.push(new Debris(debrisId++, i.x, i.y,  0, -1, t));
-      debris.push(new Debris(debrisId++, i.x, i.y, -0.7, -0.7, t));
-      debris.push(new Debris(debrisId++, i.x, i.y, -1, 0, t));
-      debris.push(new Debris(debrisId++, i.x, i.y, -0.7,  0.7, t));
-      debris.push(new Debris(debrisId++, i.x, i.y, 0,  1, t));
+      debris.push(new Debris(debrisId++, i.x, i.y,  42,  42, t));
+      debris.push(new Debris(debrisId++, i.x, i.y,  60,   0, t));
+      debris.push(new Debris(debrisId++, i.x, i.y,  42, -42, t));
+      debris.push(new Debris(debrisId++, i.x, i.y,   0, -60, t));
+      debris.push(new Debris(debrisId++, i.x, i.y, -42, -42, t));
+      debris.push(new Debris(debrisId++, i.x, i.y, -60,   0, t));
+      debris.push(new Debris(debrisId++, i.x, i.y, -42,  42, t));
+      debris.push(new Debris(debrisId++, i.x, i.y,   0,  60, t));
       if(debrisId >= 4000) debrisId = 3000;
     });
 
@@ -521,7 +521,7 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, sound, t, debug = fals
 
   let displacementList = [].concat(invaders, humans, projectiles, invaderProjectiles, debris, points);
 
-  let displacement = player.xdot;
+  let displacement = player.xdot * dt;
   displacementList.map(o => {o.x = wrapx(o.x - displacement)});
 
   starfield.map(o => {o.x = wrapstarx(o.x - (displacement * o.depth))});
@@ -541,8 +541,8 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, sound, t, debug = fals
       }
     });
 
-  fastTextMode.setString(30, 2, 'Score: ');
-  fastTextMode.setNumber(37, 2, score);
+  fastTextMode.setString(50, 2, 'Score: ');
+  fastTextMode.setNumber(57, 2, score);
 
   (player.state == PlayerState.faceLeft) ? targetoffsetx = - 32 : targetoffsetx = 32;
   offsetx += easing * (targetoffsetx - offsetx);
