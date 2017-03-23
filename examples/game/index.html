@@ -66,7 +66,9 @@
 
                 var spaceLatch = 0;
                 var pauseLatch = 0;
+                var soundLatch = 0;
                 var paused = false;
+                var soundOn = false;
 
                 function animate()
                 {
@@ -114,8 +116,29 @@
                         pauseLatch = 1;
                     }
 
+                    if(soundLatch == 1)
+                    {
+                        if(!keyboard.isKeyPressed(Keyboard.KEYS.S)) soundLatch = 0;
+                    }
+
+                    if(keyboard.isKeyPressed(Keyboard.KEYS.S) && soundLatch == 0)
+                    {
+                        soundOn = !soundOn;
+                        soundLatch = 1;
+                    }
+
                     if(!paused) {
-                        doGame(fastTextMode, viewWidth, viewHeight, input, sound, t++, false);
+                        var soundPlayer = function(){};
+                        if(soundOn) soundPlayer = sound;
+
+                        doGame(fastTextMode, viewWidth, viewHeight, input, soundPlayer, t++, false);
+
+                        fastTextMode.setString(viewWidth - 40, 2, 'p - pause game');
+
+                        if(soundOn) fastTextMode.setString(viewWidth - 20, 2, 's - sound off');
+                        else        fastTextMode.setString(viewWidth - 20, 2, 's - sound on ');
+
+                        fastTextMode.setString(5, viewHeight - 1, 'Code by Mark Purser.  Classic Defender by Williams.  Sounds by ChipTone, SFB Games.  Pixi.js by Mathew Groves, Chad Engler.');
 
                         fastTextMode.render();
                     }
