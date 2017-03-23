@@ -49,7 +49,24 @@
                 playerY = 0;
                 t = 0;
 
+                var sound = function(type) {
+                    var file = '';
+                    switch(type) {
+                        case '1up':   file = 'assets/sound/1up.wav';   break;
+                        case 'boom':  file = 'assets/sound/boom.wav';  break;
+                        case 'coin':  file = 'assets/sound/coin.wav';  break;
+                        case 'death': file = 'assets/sound/death.wav'; break;
+                        case 'zap':   file = 'assets/sound/zap.wav';   break;
+                    }
+                    var audio = new Audio(file);
+                    audio.play();
+                }
+
+                sound('1up');
+
                 var spaceLatch = 0;
+                var pauseLatch = 0;
+                var paused = false;
 
                 function animate()
                 {
@@ -86,9 +103,22 @@
                         spaceLatch = 1;
                     }
 
-                    doGame(fastTextMode, viewWidth, viewHeight, input, t++, false);
+                    if(pauseLatch == 1)
+                    {
+                        if(!keyboard.isKeyPressed(Keyboard.KEYS.P)) pauseLatch = 0;
+                    }
 
-                    fastTextMode.render();
+                    if(keyboard.isKeyPressed(Keyboard.KEYS.P) && pauseLatch == 0)
+                    {
+                        paused = !paused;
+                        pauseLatch = 1;
+                    }
+
+                    if(!paused) {
+                        doGame(fastTextMode, viewWidth, viewHeight, input, sound, t++, false);
+
+                        fastTextMode.render();
+                    }
 
                     requestAnimationFrame(animate);
                 }

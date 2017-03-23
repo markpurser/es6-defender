@@ -42,8 +42,9 @@ class Player extends StateVector {
   }
 }
 
-Player.sideLen = 3;
-Player.graphic = ['  /\n<--', '\\  \n-->'];
+Player.sideLen = 4;
+Player.graphic = ['\xab\xac\xad\xae\n\xbb\xbc\xbd\xbe\n\xcb\xcc\xcd\xce\n\xdb\xdc\xdd\xde',
+                  '\xa6\xa7\xa8\xa9\n\xb6\xb7\xb8\xb9\n\xc6\xc7\xc8\xc9\n\xd6\xd7\xd8\xd9'];
 Player.colour = 0x00ccff;
 
 class Invader extends StateVector {
@@ -57,10 +58,10 @@ class Invader extends StateVector {
 }
 
 Invader.sideLen = 4;
-Invader.graphic = '^^^^\n[[]]\n[[]]\n[[]]';
-Invader.graphicAbducting = '^^^^\n[[]]\n[[]]\n[[]]\n HH \n HH';
+Invader.graphic = '\xa1\xa2\xa3\xa4\n\xb1\xb2\xb3\xb4\n\xc1\xc2\xc3\xc4\n\xd1\xd2\xd3\xd4';
+Invader.graphicAbducting = '\xa1\xa2\xa3\xa4\n\xb1\xb2\xb3\xb4\n\xc1\xc2\xc3\xc4\n\xd1\xd2\xd3\xd4\n \xe1\xe2 \n \xf1\xf2';
 Invader.colour = 0x00ff00;
-Invader.colourAbducting = 0x00ff00;
+Invader.colourMutant = -1;
 
 class Human extends StateVector {
 
@@ -70,7 +71,7 @@ class Human extends StateVector {
 }
 
 Human.sideLen = 2;
-Human.graphic = 'HH\nHH';
+Human.graphic = '\xe1\xe2\n\xf1\xf2';
 Human.colour = 0x00aa99;
 
 class Projectile extends StateVector {
@@ -84,7 +85,7 @@ class Projectile extends StateVector {
 
 Projectile.sideLen = 2;
 Projectile.graphic = '--';
-Projectile.graphic2 = '**\n**';
+Projectile.graphic2 = '\xe6\xe7\n\xf6\xf7';
 Projectile.colour = 0xffff00;
 Projectile.colour2 = 0xffcc00;
 
@@ -185,8 +186,14 @@ let updateInvaderPosition = (sv, state, targetx, targety) => {
         sv.y += sv.ydot;
       },
       [InvaderState.mutant]: () => {
-        sv.x += 0.02 * (targetx - sv.x) + 3 * (Math.random() - 0.5);
-        sv.y += 0.02 * (targety - sv.y);
+        sv.xdot += (targetx - sv.x) > 0 ? 0.02 : -0.02;
+        sv.ydot += (targety - sv.y) > 0 ? 0.02 : -0.02;
+
+        sv.xdot += -0.02 * sv.xdot;
+        sv.ydot += -0.02 * sv.ydot;
+
+        sv.x += sv.xdot;
+        sv.y += sv.ydot;
       },
       [InvaderState.exploding]: () => {
       },
@@ -381,25 +388,15 @@ let points = [];
 let graphics = new Map();
 let invaderTargets = new Map();
 let score = 0;
-let colours = new Map([
-  [Player.graphic[0], Player.colour],
-  [Player.graphic[1], Player.colour],
-  [Invader.graphic, Invader.colour],
-  [Invader.graphicAbducting, Invader.colourAbducting],
-  [Human.graphic, Human.colour],
-  [Projectile.graphic, Projectile.colour],
-  [Projectile.graphic2, Projectile.colour2],
-  [Debris.graphic, Debris.colour],
-  [Star.graphic, Star.colour]
-]);
 
-let doGame = (fastTextMode, viewWidth, viewHeight, input, t, debug = false) => {
+let doGame = (fastTextMode, viewWidth, viewHeight, input, sound, t, debug = false) => {
 
   Global.viewWidth = viewWidth;
   Global.viewHeight = viewHeight;
 
   if(input.fire) {
-    projectiles.push(new Projectile(projectileId++, player.x, player.y+1, (player.state == PlayerState.faceLeft) ? -4 : 4, 0, t));
+    sound('zap');
+    projectiles.push(new Projectile(projectileId++, player.x, player.y+2, (player.state == PlayerState.faceLeft) ? -4 : 4, 0, t));
     if(projectileId >= 1000) projectileId = 500;
   }
 
@@ -420,7 +417,15 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, t, debug = false) => {
   });
 
   mutantInvaders.map(i => {
-    if(Math.random() < 0.1) {
+    let dx = player.x - i.x;
+    if(Math.random() < 0.01 && Math.abs(dx) < (Global.viewWidth / 3)) {
+      let dy = player.y - i.y;
+      let l = Math.sqrt(dx * dx + dy * dy);
+      let unitdx = dx / l;
+      let unitdy = dy / l;
+      invaderProjectiles.push(new Projectile(invaderProjectileId++, i.x, i.y, unitdx, unitdy, t));
+    }
+    if(Math.random() < 0.02) {
       invaderProjectiles.push(new Projectile(invaderProjectileId++, i.x, i.y, Math.random() - 0.5, Math.random() - 0.5, t));
     }
   });
@@ -451,22 +456,15 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, t, debug = false) => {
   allEvents.filter(e => e.event == Event.removePoints).map(e => remove(points, e.id, graphics));
   allEvents.filter(e => e.event == Event.locked).map(e => invaderTargets.set(e.invaderId, e));
   allEvents.filter(e => e.event == Event.removeHuman).map(e => remove(humans, e.id, graphics));
-  allEvents.filter(e => e.event == Event.playerDead).map(e => eiofjeiof());
-  allEvents.filter(e => e.event == Event.collectedHuman).map(_ => {score += 20000; points.push(new Points(pointsId++, player.x, player.y, 0.01, 0.01, t, '20000'));});
-
-
-  graphics.set(player.id, (player.state == PlayerState.faceLeft) ? Player.graphic[0] : Player.graphic[1]);
-
-  invaders.map(i => {
-    let g = (i.state == InvaderState.abducting) ? Invader.graphicAbducting : Invader.graphic;
-    graphics.set(i.id, g);
+  allEvents.filter(e => e.event == Event.playerDead).map(e => {
+    sound('death');
+    eiwjfoiejf();
   });
-  humans.map(h => graphics.set(h.id, Human.graphic));
-  projectiles.map(p => graphics.set(p.id, Projectile.graphic));
-  invaderProjectiles.map(p => graphics.set(p.id, Projectile.graphic2));
-  starfield.map(s => graphics.set(s.id, Star.graphic));
-  debris.map(d => graphics.set(d.id, Debris.graphic));
-  points.map(p => graphics.set(p.id, p.points));
+  allEvents.filter(e => e.event == Event.collectedHuman).map(_ => {
+    sound('coin');
+    score += 20000;
+    points.push(new Points(pointsId++, player.x, player.y, 0.01, 0.01, t, '20000'));
+  });
 
 
   // non-functional code section. game objects are updated 'in-place'
@@ -491,6 +489,7 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, t, debug = false) => {
   // invader explosion
   invaders.filter(i => i.state == InvaderState.explodingReleaseHuman || i.state == InvaderState.exploding && i.t_startState == t)
     .map(i => {
+      sound('boom');
       score += 1000;
       remove(invaders, i.id, graphics);
       debris.push(new Debris(debrisId++, i.x, i.y,  0.7, 0.7, t));
@@ -503,6 +502,21 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, t, debug = false) => {
       debris.push(new Debris(debrisId++, i.x, i.y, 0,  1, t));
       if(debrisId >= 4000) debrisId = 3000;
     });
+
+
+  graphics.set(player.id, (player.state == PlayerState.faceLeft) ? {g:Player.graphic[0], c:Player.colour} : {g:Player.graphic[1], c:Player.colour});
+
+  invaders.map(i => {
+    let g = (i.state == InvaderState.abducting) ? Invader.graphicAbducting : Invader.graphic;
+    let c = (i.state == InvaderState.mutant) ? Invader.colourMutant : Invader.colour;
+    graphics.set(i.id, {g:g, c:c});
+  });
+  humans.map(h => graphics.set(h.id, {g:Human.graphic, c:Human.colour}));
+  projectiles.map(p => graphics.set(p.id, {g:Projectile.graphic, c:Projectile.colour}));
+  invaderProjectiles.map(p => graphics.set(p.id, {g:Projectile.graphic2, c:Projectile.colour2}));
+  starfield.map(s => graphics.set(s.id, {g:Star.graphic, c:Star.colour}));
+  debris.map(d => graphics.set(d.id, {g:Debris.graphic, c:Debris.colour}));
+  points.map(p => graphics.set(p.id, {g:p.points, c:0xffffff}));
 
 
   let displacementList = [].concat(invaders, humans, projectiles, invaderProjectiles, debris, points);
@@ -518,9 +532,8 @@ let doGame = (fastTextMode, viewWidth, viewHeight, input, t, debug = false) => {
     .map(toLocal)
     .filter(clip)
     .map(i => {
-      let g = graphics.has(i.id) ? graphics.get(i.id) : '!';
-      let c = colours.has(g) ? colours.get(g) : 0xffffff;
-      fastTextMode.setString(Math.floor(i.lx), Math.floor(i.ly), g, c)
+      let g = graphics.has(i.id) ? graphics.get(i.id) : {g:'!', c:0xff0000};
+      fastTextMode.setString(Math.floor(i.lx), Math.floor(i.ly), g.g, g.c)
       if(debug) {
         // overlay object id and x coordinate
         fastTextMode.setNumber(Math.floor(i.lx+3), Math.floor(i.ly), i.id)
