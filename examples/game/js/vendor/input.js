@@ -56,6 +56,7 @@
       this.keyUp = __bind(this.keyUp, this);
       this.keyDown = __bind(this.keyDown, this);
       this.keysPressed = [];
+      this.keyLatch = [];
       window.addEventListener("keydown", this.keyDown, false);
       window.addEventListener("keyup", this.keyUp, false);
     }
@@ -70,6 +71,17 @@
 
     Keyboard.prototype.isKeyPressed = function(keyCode) {
       return !!this.keysPressed[keyCode];
+    };
+
+    Keyboard.prototype.isKeyPressedAndReleased = function(keyCode) {
+      if (!!this.keysPressed[keyCode]) {
+        this.keyLatch[keyCode] = true;
+      }
+      else if (!!this.keyLatch[keyCode] && !this.keysPressed[keyCode]) {
+        this.keyLatch[keyCode] = false;
+        return true;
+      }
+      return false;
     };
 
     return Keyboard;

@@ -73,20 +73,24 @@
                     audio.play();
                 }
 
-                resetGame(viewWidth, viewHeight, function(){});
+                var nullSoundPlayer = function(){};
+
+                resetGame(viewWidth, viewHeight, nullSoundPlayer);
 
                 var spaceLatch = 0;
-                var pauseLatch = 0;
-                var soundLatch = 0;
                 var paused = false;
                 var soundOn = false;
                 var lastTime = null;
+                var dead = false;
 
                 function animate(timestamp)
                 {
                     if (!lastTime) lastTime = timestamp;
                     var dt = (timestamp - lastTime) / 1000;
                     lastTime = timestamp;
+
+                    if(soundOn) soundPlayer = sound;
+                    else        soundPlayer = nullSoundPlayer;
 
                     var input = {updown: 0, leftright: 0, fire: 0};
 
@@ -121,34 +125,32 @@
                         spaceLatch = 1;
                     }
 
-                    if(pauseLatch == 1)
-                    {
-                        if(!keyboard.isKeyPressed(Keyboard.KEYS.P)) pauseLatch = 0;
-                    }
-
-                    if(keyboard.isKeyPressed(Keyboard.KEYS.P) && pauseLatch == 0)
+                    if(keyboard.isKeyPressedAndReleased(Keyboard.KEYS.P))
                     {
                         paused = !paused;
-                        pauseLatch = 1;
                     }
 
-                    if(soundLatch == 1)
-                    {
-                        if(!keyboard.isKeyPressed(Keyboard.KEYS.S)) soundLatch = 0;
-                    }
-
-                    if(keyboard.isKeyPressed(Keyboard.KEYS.S) && soundLatch == 0)
+                    if(keyboard.isKeyPressedAndReleased(Keyboard.KEYS.S))
                     {
                         soundOn = !soundOn;
-                        soundLatch = 1;
+                    }
+
+                    if(keyboard.isKeyPressedAndReleased(Keyboard.KEYS.R))
+                    {
+                        dead = false;
+                        paused = false;
+                        resetGame(viewWidth, viewHeight, soundPlayer);
                     }
 
                     if(!paused) {
-                        var soundPlayer = function(){};
-                        if(soundOn) soundPlayer = sound;
+                        dead = doGame(fastTextMode, input, soundPlayer, clock++, dt, false);
 
-                        doGame(fastTextMode, input, soundPlayer, clock++, dt, false);
+                        if(dead) {
+                            paused = true;
+                            fastTextMode.setString(Math.floor(viewWidth / 2) - 10, Math.floor(viewHeight / 2), 'DEAD press r to restart game');
+                        }
 
+                        fastTextMode.setString(viewWidth - 60, 2, 'r - reset game');
                         fastTextMode.setString(viewWidth - 40, 2, 'p - pause game');
 
                         if(soundOn) fastTextMode.setString(viewWidth - 20, 2, 's - sound off');

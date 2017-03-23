@@ -152,12 +152,14 @@ let updatePlayerPosition = (sv, input, dt) => {
   sv.y += sv.ydot * dt;
 
   if(sv.y < 0) sv.y = 0;
-  if(sv.y > Global.viewHeight - 5) sv.y = Global.viewHeight - 5;
+  if(sv.y > Global.viewHeight - groundOffset - 4) sv.y = Global.viewHeight - groundOffset - 4;
 
   return sv;
 }
 
 let updatePlayerState = (player, input) => {
+  if(player.state == PlayerState.exploding) return;
+
   if(input.leftright != 0) {
     player.state = (input.leftright == -1) ? PlayerState.faceLeft : PlayerState.faceRight;
   }
@@ -485,7 +487,7 @@ let doGame = (fastTextMode, input, sound, t, dt, debug = false) => {
   allEvents.filter(e => e.event == Event.removeHuman).map(e => remove(humans, e.id, graphics));
   allEvents.filter(e => e.event == Event.playerDead).map(e => {
     sound('death');
-    eiwjfoiejf();
+    player.state = PlayerState.exploding;
   });
   allEvents.filter(e => e.event == Event.collectedHuman).map(_ => {
     sound('coin');
@@ -573,5 +575,7 @@ let doGame = (fastTextMode, input, sound, t, dt, debug = false) => {
 
   (player.state == PlayerState.faceLeft) ? targetoffsetx = - Global.viewWidth * 0.3 : targetoffsetx = Global.viewWidth * 0.3;
   offsetx += easing * (targetoffsetx - offsetx);
+
+  return player.state == PlayerState.exploding;
 }
 
