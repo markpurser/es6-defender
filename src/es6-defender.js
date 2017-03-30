@@ -1,4 +1,6 @@
-
+// -------------------------------------------------------------------------------------------------------------------------------------------
+// constants and enums
+// -------------------------------------------------------------------------------------------------------------------------------------------
 let PlayerState = Object.freeze({faceLeft:1, faceRight:2, exploding:3})
 
 let InvaderState = Object.freeze({seeking:1, locked:2, abducting:3, mutant:4, exploding:5, explodingReleaseHuman:6})
@@ -6,9 +8,9 @@ let InvaderState = Object.freeze({seeking:1, locked:2, abducting:3, mutant:4, ex
 let Event = Object.freeze({locked:1, abducted:2, mutated:3, dead:4, removeProjectile:5, removeHuman:6, playerDead:7, collectedHuman:8, removeDebris:9})
 
 const easing = 0.05;
-const playerAccelX = 720;
+const playerAccelX = 520;
 const playerDampingX = 6;
-const playerMaxSpeedX = 114;
+const playerMaxSpeedX = 164;
 const playerMaxSpeedY = 42;
 const debrisDamping = 0.6;
 const modulusx = 512;
@@ -22,6 +24,9 @@ const groundOffset = 6;
 
 let Global = {viewWidth:0, viewHeight:0};
 
+// -------------------------------------------------------------------------------------------------------------------------------------------
+// custom data types
+// -------------------------------------------------------------------------------------------------------------------------------------------
 class StateVector {
   
   constructor(id, x, y, xdot = 0, ydot = 0) {
@@ -43,11 +48,6 @@ class Player extends StateVector {
   }
 }
 
-Player.sideLen = 4;
-Player.graphic = ['\xab\xac\xad\xae\n\xbb\xbc\xbd\xbe\n\xcb\xcc\xcd\xce\n\xdb\xdc\xdd\xde',
-                  '\xa6\xa7\xa8\xa9\n\xb6\xb7\xb8\xb9\n\xc6\xc7\xc8\xc9\n\xd6\xd7\xd8\xd9'];
-Player.colour = 0x00ccff;
-
 class Invader extends StateVector {
   
   constructor(id, x, y, state, t_startState) {
@@ -58,22 +58,12 @@ class Invader extends StateVector {
   }
 }
 
-Invader.sideLen = 4;
-Invader.graphic = '\xa1\xa2\xa3\xa4\n\xb1\xb2\xb3\xb4\n\xc1\xc2\xc3\xc4\n\xd1\xd2\xd3\xd4';
-Invader.graphicAbducting = '\xa1\xa2\xa3\xa4\n\xb1\xb2\xb3\xb4\n\xc1\xc2\xc3\xc4\n\xd1\xd2\xd3\xd4\n \xe1\xe2 \n \xf1\xf2';
-Invader.colour = 0x00ff00;
-Invader.colourMutant = -1;
-
 class Human extends StateVector {
 
   constructor(id, x, y, xdot, ydot) {
     super(id, x, y, xdot, ydot);
   }
 }
-
-Human.sideLen = 2;
-Human.graphic = '\xe1\xe2\n\xf1\xf2';
-Human.colour = 0x00aa99;
 
 class Projectile extends StateVector {
 
@@ -84,12 +74,6 @@ class Projectile extends StateVector {
   }
 }
 
-Projectile.sideLen = 2;
-Projectile.graphic = '--';
-Projectile.graphic2 = '\xe6\xe7\n\xf6\xf7';
-Projectile.colour = 0xffff00;
-Projectile.colour2 = 0xffcc00;
-
 class Debris extends StateVector {
 
   constructor(id, x, y, xdot, ydot, t_spawned) {
@@ -98,9 +82,6 @@ class Debris extends StateVector {
     this.t_spawned = t_spawned;
   }
 }
-
-Debris.graphic = '@';
-Debris.colour = 0xff88ff;
 
 class Points extends StateVector {
 
@@ -112,8 +93,6 @@ class Points extends StateVector {
   }
 }
 
-Points.colour = -1;
-
 class Star extends StateVector {
 
   constructor(id, x, y, depth) {
@@ -123,10 +102,42 @@ class Star extends StateVector {
   }
 }
 
+// -------------------------------------------------------------------------------------------------------------------------------------------
+// custom data type statics
+// -------------------------------------------------------------------------------------------------------------------------------------------
+Player.sideLen = 4;
+Player.graphic = ['\xab\xac\xad\xae\n\xbb\xbc\xbd\xbe\n\xcb\xcc\xcd\xce\n\xdb\xdc\xdd\xde',
+                  '\xa6\xa7\xa8\xa9\n\xb6\xb7\xb8\xb9\n\xc6\xc7\xc8\xc9\n\xd6\xd7\xd8\xd9'];
+Player.colour = 0x00ccff;
+
+Invader.sideLen = 4;
+Invader.graphic = '\xa1\xa2\xa3\xa4\n\xb1\xb2\xb3\xb4\n\xc1\xc2\xc3\xc4\n\xd1\xd2\xd3\xd4';
+Invader.graphicAbducting = '\xa1\xa2\xa3\xa4\n\xb1\xb2\xb3\xb4\n\xc1\xc2\xc3\xc4\n\xd1\xd2\xd3\xd4\n \xe1\xe2 \n \xf1\xf2';
+Invader.colour = 0x00ff00;
+Invader.colourMutant = -1;
+
+Human.sideLen = 2;
+Human.graphic = '\xe1\xe2\n\xf1\xf2';
+Human.colour = 0x00aa99;
+
+Projectile.sideLen = 2;
+Projectile.graphic = '--';
+Projectile.graphic2 = '\xe6\xe7\n\xf6\xf7';
+Projectile.colour = 0xffff00;
+Projectile.colour2 = 0xffcc00;
+
+Debris.graphic = '@';
+Debris.colour = 0xff88ff;
+
+Points.colour = -1;
+
 Star.graphic = '.';
 Star.colour = -1;
 
 
+// -------------------------------------------------------------------------------------------------------------------------------------------
+// generic functions
+// -------------------------------------------------------------------------------------------------------------------------------------------
 let wrapx = (x) => {
   if(x < -halfmodulusx) x += modulusx;
   else if(x >= halfmodulusx) x -= modulusx;
@@ -139,6 +150,85 @@ let wrapstarx = (x) => {
   return x;
 }
 
+let toLocal = sv => {
+  let lx = sv.x - offsetx;
+  lx += Global.viewWidth / 2;
+
+  let ly = sv.y;
+
+  return {id:sv.id, lx:lx, ly:ly, gx_debug:sv.x};
+}
+
+let clip = lcoords => (lcoords.lx >= 0) && (lcoords.ly < Global.viewWidth);
+
+let remove = (objects, id, graphics) => {
+  let o = objects.findIndex(o => o.id == id);
+  objects.splice(o, 1);
+  graphics.delete(id);
+}
+
+let fillWith = (n, f) => Array(n).fill().map(f);
+
+// -------------------------------------------------------------------------------------------------------------------------------------------
+// collision functions
+// -------------------------------------------------------------------------------------------------------------------------------------------
+let cartesianProduct2 = (arr1, arr2) =>
+  arr1.map(e1 => arr2.map(e2 => [e1, e2])).reduce((arr, e) => arr.concat(e), []);
+
+let toTuples = (arr) =>
+  arr.map(a => ({fst:a[0], snd:a[1]}));
+
+
+let xoverlap = (x1, size1, x2, size2) =>
+  (x2 < (x1 + size1) &&
+   x1 < (x2 + size2));
+
+let yoverlap = (y1, size1, y2, size2) =>
+  (y2 < (y1 + size1) &&
+   y1 < (y2 + size2));
+
+let collided = ({x:x1, y:y1}, size1, {x:x2, y:y2}, size2) =>
+  (xoverlap(x1, size1, x2, size2) && yoverlap(y1, size1, y2, size2));
+
+
+let detectCollisions = (svArr1, size1, svArr2, size2) =>
+  toTuples(cartesianProduct2(svArr1, svArr2))
+    .filter(svPair => collided(svPair.fst, size1, svPair.snd, size2))
+    .map(collidedPair => ({id1:collidedPair.fst.id, id2:collidedPair.snd.id}));
+
+
+// -------------------------------------------------------------------------------------------------------------------------------------------
+// update state
+// -------------------------------------------------------------------------------------------------------------------------------------------
+let updatePlayerState = (player, input) => {
+  if(player.state == PlayerState.exploding) return;
+
+  if(input.leftright != 0) {
+    player.state = (input.leftright == -1) ? PlayerState.faceLeft : PlayerState.faceRight;
+  }
+}
+
+let updateInvaderState = (invaders, events, t) => {
+  events.map(e => {
+    if(e.event == Event.locked || e.event == Event.abducted || e.event == Event.dead || e.event == Event.mutated)
+    {
+      let idx = invaders.findIndex(i => i.id == e.invaderId);
+      let i = invaders[idx];
+      i.state = {
+        [Event.locked]: InvaderState.locked,
+        [Event.abducted]: InvaderState.abducting,
+        [Event.mutated]: InvaderState.mutant,
+        [Event.dead]: i.state == InvaderState.abducting ? InvaderState.explodingReleaseHuman : InvaderState.exploding
+      }[e.event];
+      i.t_startState = t;      
+    }
+  })
+}
+
+
+// -------------------------------------------------------------------------------------------------------------------------------------------
+// update positions
+// -------------------------------------------------------------------------------------------------------------------------------------------
 let updatePlayerPosition = (sv, input, dt) => {
   sv.xdot += playerAccelX * input.leftright * dt;
   sv.ydot = playerMaxSpeedY * input.updown;
@@ -155,14 +245,6 @@ let updatePlayerPosition = (sv, input, dt) => {
   if(sv.y > Global.viewHeight - groundOffset - 4) sv.y = Global.viewHeight - groundOffset - 4;
 
   return sv;
-}
-
-let updatePlayerState = (player, input) => {
-  if(player.state == PlayerState.exploding) return;
-
-  if(input.leftright != 0) {
-    player.state = (input.leftright == -1) ? PlayerState.faceLeft : PlayerState.faceRight;
-  }
 }
 
 let updateInvaderPosition = (sv, state, targetx, targety, dt) => {
@@ -220,23 +302,6 @@ let updateInvaders = (invaders, invaderTargets, player, dt) =>
     updateInvaderPosition(i, i.state, targetx, targety, dt);
   });
 
-let updateInvaderState = (invaders, events, t) => {
-  events.map(e => {
-    if(e.event == Event.locked || e.event == Event.abducted || e.event == Event.dead || e.event == Event.mutated)
-    {
-      let idx = invaders.findIndex(i => i.id == e.invaderId);
-      let i = invaders[idx];
-      i.state = {
-        [Event.locked]: InvaderState.locked,
-        [Event.abducted]: InvaderState.abducting,
-        [Event.mutated]: InvaderState.mutant,
-        [Event.dead]: i.state == InvaderState.abducting ? InvaderState.explodingReleaseHuman : InvaderState.exploding
-      }[e.event];
-      i.t_startState = t;      
-    }
-  })
-}
-
 let updateHumanPosition = (sv, dt) => {
   sv.x += sv.xdot * dt;
   sv.y += sv.ydot * dt;
@@ -266,30 +331,10 @@ let updateDebrisPosition = (d, dt) => {
 
 let updateDebris = (debris, dt) => debris.map(d => updateDebrisPosition(d, dt));
 
-let cartesianProduct2 = (arr1, arr2) =>
-  arr1.map(e1 => arr2.map(e2 => [e1, e2])).reduce((arr, e) => arr.concat(e), []);
 
-let toTuples = (arr) =>
-  arr.map(a => ({fst:a[0], snd:a[1]}));
-
-
-let xoverlap = (x1, size1, x2, size2) =>
-  (x2 < (x1 + size1) &&
-   x1 < (x2 + size2));
-
-let yoverlap = (y1, size1, y2, size2) =>
-  (y2 < (y1 + size1) &&
-   y1 < (y2 + size2));
-
-let collided = ({x:x1, y:y1}, size1, {x:x2, y:y2}, size2) =>
-  (xoverlap(x1, size1, x2, size2) && yoverlap(y1, size1, y2, size2));
-
-
-let detectCollisions = (svArr1, size1, svArr2, size2) =>
-  toTuples(cartesianProduct2(svArr1, svArr2))
-    .filter(svPair => collided(svPair.fst, size1, svPair.snd, size2))
-    .map(collidedPair => ({id1:collidedPair.fst.id, id2:collidedPair.snd.id}));
-
+// -------------------------------------------------------------------------------------------------------------------------------------------
+// check state and generate events
+// -------------------------------------------------------------------------------------------------------------------------------------------
 let checkSeekingInvader = (invader, humans) => {
   let inRangeHumans = humans.filter(h => xoverlap(invader.x, Invader.sideLen, h.x, Human.sideLen));
   if(inRangeHumans.length > 0) {
@@ -335,7 +380,6 @@ let checkHitPlayerHumans = (player, humans) =>
       {event:Event.removeHuman, id:collidedPair.id2}
     ]), []);
 
-
 let checkProjectiles = (projectiles, t) =>
   projectiles.filter(p => (t - p.t_spawned) > projectileLifetime)
     .map(p => ({event:Event.removeProjectile, id:p.id}));
@@ -349,28 +393,9 @@ let checkPoints = (points, t) =>
     .map(p => ({event:Event.removePoints, id:p.id}));
 
 
-let toLocal = sv => {
-  let lx = sv.x - offsetx;
-  lx += Global.viewWidth / 2;
-
-  let ly = sv.y;
-
-  return {id:sv.id, lx:lx, ly:ly, gx_debug:sv.x};
-}
-
-let clip = lcoords => (lcoords.lx >= 0) && (lcoords.ly < Global.viewWidth);
-
-let remove = (objects, id, graphics) => {
-  let o = objects.findIndex(o => o.id == id);
-  objects.splice(o, 1);
-  graphics.delete(id);
-}
-
-
-
-let fillWith = (n, f) => Array(n).fill().map(f);
-
-
+// -------------------------------------------------------------------------------------------------------------------------------------------
+// game state variables
+// -------------------------------------------------------------------------------------------------------------------------------------------
 let offsetx = 0;
 let targetoffsetx = 0;
 let playerId = null;
@@ -392,6 +417,10 @@ let graphics = null;
 let invaderTargets = null;
 let score = null;
 
+
+// -------------------------------------------------------------------------------------------------------------------------------------------
+// reset game state
+// -------------------------------------------------------------------------------------------------------------------------------------------
 let resetGame = (viewWidth, viewHeight, sound) => {
 
   Global.viewWidth = viewWidth;
@@ -420,7 +449,9 @@ let resetGame = (viewWidth, viewHeight, sound) => {
 }
 
 
-
+// -------------------------------------------------------------------------------------------------------------------------------------------
+// run a single game tick
+// -------------------------------------------------------------------------------------------------------------------------------------------
 let doGame = (fastTextMode, input, sound, t, dt, debug = false) => {
 
   if(input.fire) {
@@ -573,7 +604,12 @@ let doGame = (fastTextMode, input, sound, t, dt, debug = false) => {
   fastTextMode.setString(50, 2, 'Score: ');
   fastTextMode.setNumber(57, 2, score);
 
-  (player.state == PlayerState.faceLeft) ? targetoffsetx = - Global.viewWidth * 0.3 : targetoffsetx = Global.viewWidth * 0.3;
+  // compute offset of local coordinate system
+  // shift player to right or left of screen
+  (player.state == PlayerState.faceLeft) ? targetoffsetx = -Global.viewWidth * 0.3 : targetoffsetx = Global.viewWidth * 0.3;
+  // apply 'forward motion' effect as player velocity increases
+  targetoffsetx -= 0.05 * player.xdot;
+  // ease offset towards target offset
   offsetx += easing * (targetoffsetx - offsetx);
 
   return player.state == PlayerState.exploding;
