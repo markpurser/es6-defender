@@ -392,6 +392,26 @@ let checkPoints = (points, t) =>
   points.filter(p => (t - p.t_spawned) > pointsLifetime)
     .map(p => ({event:Event.removePoints, id:p.id}));
 
+let invaderFire = (i, player, invaderProjectileId, t) => {
+    let dx = player.x - i.x;
+    if(Math.random() < 0.01 && Math.abs(dx) < (Global.viewWidth / 3)) {
+      let dy = player.y - i.y;
+      let l = Math.sqrt(dx * dx + dy * dy);
+      let unitdx = dx / l;
+      let unitdy = dy / l;
+      return new Projectile(invaderProjectileId, i.x, i.y, unitdx * 60, unitdy * 60, t);
+    }
+    return null;
+}
+
+let makeExplosion = (debris, debrisId, i, t) => {
+  let velocities = [[42,42],[60,0],[42,-42],[0,-60],[-42,-42],[-60,0],[-42,42],[0,60]];
+  velocities.map(v => {
+    debris.push(new Debris(debrisId++, i.x, i.y,  v[0],  v[1], t));
+  });
+  return debrisId;
+}
+
 
 // -------------------------------------------------------------------------------------------------------------------------------------------
 // game state variables
@@ -454,36 +474,33 @@ let resetGame = (viewWidth, viewHeight, sound) => {
 // -------------------------------------------------------------------------------------------------------------------------------------------
 let doGame = (fastTextMode, input, sound, t, dt, debug = false) => {
 
+  // player fire button
   if(input.fire) {
     sound('zap');
     projectiles.push(new Projectile(projectileId++, player.x, player.y+2, (player.state == PlayerState.faceLeft) ? -240 : 240, 0, t));
     if(projectileId >= 1000) projectileId = 500;
   }
 
+  // filter invaders according to state
   let seekingInvaders = invaders.filter(i => i.state == InvaderState.seeking);
   let lockedInvaders = invaders.filter(i => i.state == InvaderState.locked);
   let abductingInvaders = invaders.filter(i => i.state == InvaderState.abducting);
   let mutantInvaders = invaders.filter(i => i.state == InvaderState.mutant);
 
+  // invader fire
   seekingInvaders.map(i => {
-    let dx = player.x - i.x;
-    if(Math.random() < 0.01 && Math.abs(dx) < (Global.viewWidth / 3)) {
-      let dy = player.y - i.y;
-      let l = Math.sqrt(dx * dx + dy * dy);
-      let unitdx = dx / l;
-      let unitdy = dy / l;
-      invaderProjectiles.push(new Projectile(invaderProjectileId++, i.x, i.y, unitdx * 60, unitdy * 60, t));
+    let p = invaderFire(i, player, invaderProjectileId, t);
+    if(p) {
+      invaderProjectiles.push(p);
+      invaderProjectileId++;
     }
   });
 
   mutantInvaders.map(i => {
-    let dx = player.x - i.x;
-    if(Math.random() < 0.01 && Math.abs(dx) < (Global.viewWidth / 3)) {
-      let dy = player.y - i.y;
-      let l = Math.sqrt(dx * dx + dy * dy);
-      let unitdx = dx / l;
-      let unitdy = dy / l;
-      invaderProjectiles.push(new Projectile(invaderProjectileId++, i.x, i.y, unitdx * 60, unitdy * 60, t));
+    let p = invaderFire(i, player, invaderProjectileId, t);
+    if(p) {
+      invaderProjectiles.push(p);
+      invaderProjectileId++;
     }
     if(Math.random() < 0.02) {
       invaderProjectiles.push(new Projectile(invaderProjectileId++, i.x, i.y, (Math.random() - 0.5) * 60, (Math.random() - 0.5) * 60, t));
@@ -493,7 +510,7 @@ let doGame = (fastTextMode, input, sound, t, dt, debug = false) => {
   if(invaderProjectileId >= 1500) invaderProjectileId = 1000;
   if(invaderProjectiles.length > 30) remove(invaderProjectiles, invaderProjectiles[0].id, graphics);
 
-
+  // events
   let projectileEvents = checkProjectiles(projectiles, t);
   let debrisEvents = checkDebris(debris, t);
   let pointsEvents = checkPoints(points, t);
@@ -527,10 +544,13 @@ let doGame = (fastTextMode, input, sound, t, dt, debug = false) => {
   });
 
 
-  // non-functional code section. game objects are updated 'in-place'
+  // update game object state
+  // game objects are updated 'in-place'
   updatePlayerState(player, input);
   updateInvaderState(invaders, invaderEvents, t);
 
+  // update positions
+  // game objects are updated 'in-place'
   updatePlayerPosition(player, input, dt);
   updateInvaders(invaders, invaderTargets, player, dt);
   updateHumans(humans, dt);
@@ -538,7 +558,6 @@ let doGame = (fastTextMode, input, sound, t, dt, debug = false) => {
   updateProjectiles(invaderProjectiles, dt);
   updateDebris(debris, dt);
   updateProjectiles(points, dt);
-  // end non-functional code section
 
   // triggers based on state changes must be placed after state update code
 
@@ -552,18 +571,14 @@ let doGame = (fastTextMode, input, sound, t, dt, debug = false) => {
       sound('boom');
       score += 1000;
       remove(invaders, i.id, graphics);
-      debris.push(new Debris(debrisId++, i.x, i.y,  42,  42, t));
-      debris.push(new Debris(debrisId++, i.x, i.y,  60,   0, t));
-      debris.push(new Debris(debrisId++, i.x, i.y,  42, -42, t));
-      debris.push(new Debris(debrisId++, i.x, i.y,   0, -60, t));
-      debris.push(new Debris(debrisId++, i.x, i.y, -42, -42, t));
-      debris.push(new Debris(debrisId++, i.x, i.y, -60,   0, t));
-      debris.push(new Debris(debrisId++, i.x, i.y, -42,  42, t));
-      debris.push(new Debris(debrisId++, i.x, i.y,   0,  60, t));
+      // debris updated 'in-place'
+      debrisId = makeExplosion(debris, debrisId, i, t);
       if(debrisId >= 4000) debrisId = 3000;
     });
 
 
+  // prepare to draw
+  // update graphics map
   graphics.set(player.id, (player.state == PlayerState.faceLeft) ? {g:Player.graphic[0], c:Player.colour} : {g:Player.graphic[1], c:Player.colour});
 
   invaders.map(i => {
@@ -578,7 +593,7 @@ let doGame = (fastTextMode, input, sound, t, dt, debug = false) => {
   debris.map(d => graphics.set(d.id, {g:Debris.graphic, c:Debris.colour}));
   points.map(p => graphics.set(p.id, {g:p.points, c:0xffffff}));
 
-
+  // compute displacements
   let displacementList = [].concat(invaders, humans, projectiles, invaderProjectiles, debris, points);
 
   let displacement = player.xdot * dt;
@@ -588,6 +603,7 @@ let doGame = (fastTextMode, input, sound, t, dt, debug = false) => {
 
   let displayList = [].concat(starfield, displacementList, player);
 
+  // draw
   displayList
     .map(toLocal)
     .filter(clip)
