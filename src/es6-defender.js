@@ -21,6 +21,7 @@ const projectileLifetime = 60;
 const debrisLifetime = 100;
 const pointsLifetime = 200;
 const groundOffset = 6;
+const colourFlash = -1;
 
 let Global = {viewWidth:0, viewHeight:0};
 
@@ -114,7 +115,7 @@ Invader.sideLen = 4;
 Invader.graphic = '\xa1\xa2\xa3\xa4\n\xb1\xb2\xb3\xb4\n\xc1\xc2\xc3\xc4\n\xd1\xd2\xd3\xd4';
 Invader.graphicAbducting = '\xa1\xa2\xa3\xa4\n\xb1\xb2\xb3\xb4\n\xc1\xc2\xc3\xc4\n\xd1\xd2\xd3\xd4\n \xe1\xe2 \n \xf1\xf2';
 Invader.colour = 0x00ff00;
-Invader.colourMutant = -1;
+Invader.colourMutant = colourFlash;
 
 Human.sideLen = 2;
 Human.graphic = '\xe1\xe2\n\xf1\xf2';
@@ -129,10 +130,10 @@ Projectile.colour2 = 0xffcc00;
 Debris.graphic = '@';
 Debris.colour = 0xff88ff;
 
-Points.colour = -1;
+Points.colour = colourFlash;
 
 Star.graphic = '.';
-Star.colour = -1;
+Star.colour = colourFlash;
 
 
 // -------------------------------------------------------------------------------------------------------------------------------------------
@@ -225,9 +226,8 @@ let updateInvaderState = (invaders, events, t) => {
   })
 }
 
-
 // -------------------------------------------------------------------------------------------------------------------------------------------
-// update positions
+// update position
 // -------------------------------------------------------------------------------------------------------------------------------------------
 let updatePlayerPosition = (sv, input, dt) => {
   sv.xdot += playerAccelX * input.leftright * dt;
@@ -289,7 +289,33 @@ let updateInvaderPosition = (sv, state, targetx, targety, dt) => {
   return sv;
 }
 
-let updateInvaders = (invaders, invaderTargets, player, dt) =>
+let updateHumanPosition = (sv, dt) => {
+  sv.x += sv.xdot * dt;
+  sv.y += sv.ydot * dt;
+
+  return sv;
+}
+
+let updateProjectilePosition = (sv, dt) => {
+  sv.x += sv.xdot * dt;
+  sv.y += sv.ydot * dt;
+
+  return sv;
+}
+
+let updateDebrisPosition = (d, dt) => {
+  updateProjectilePosition(d, dt);
+
+  d.xdot += -debrisDamping * d.xdot * dt;
+  d.ydot += -debrisDamping * d.ydot * dt;
+
+  return d;
+}
+
+// -------------------------------------------------------------------------------------------------------------------------------------------
+// update position helpers
+// -------------------------------------------------------------------------------------------------------------------------------------------
+let updateInvaderPositions = (invaders, invaderTargets, player, dt) =>
   invaders.map(i => {
     let targetx = 0, targety = 0;
     if(i.state == InvaderState.mutant) {
@@ -302,34 +328,11 @@ let updateInvaders = (invaders, invaderTargets, player, dt) =>
     updateInvaderPosition(i, i.state, targetx, targety, dt);
   });
 
-let updateHumanPosition = (sv, dt) => {
-  sv.x += sv.xdot * dt;
-  sv.y += sv.ydot * dt;
+let updateHumanPositions = (humans, dt) => humans.map(h => updateHumanPosition(h, dt));
 
-  return sv;
-}
+let updateProjectilePositions = (projectiles, dt) => projectiles.map(p => updateProjectilePosition(p, dt));
 
-let updateHumans = (humans, dt) => humans.map(h => updateHumanPosition(h, dt));
-
-let updateProjectilePosition = (sv, dt) => {
-  sv.x += sv.xdot * dt;
-  sv.y += sv.ydot * dt;
-
-  return sv;
-}
-
-let updateProjectiles = (projectiles, dt) => projectiles.map(p => updateProjectilePosition(p, dt));
-
-let updateDebrisPosition = (d, dt) => {
-  updateProjectilePosition(d, dt);
-
-  d.xdot += -debrisDamping * d.xdot * dt;
-  d.ydot += -debrisDamping * d.ydot * dt;
-
-  return d;
-}
-
-let updateDebris = (debris, dt) => debris.map(d => updateDebrisPosition(d, dt));
+let updateDebrisPositions = (debris, dt) => debris.map(d => updateDebrisPosition(d, dt));
 
 
 // -------------------------------------------------------------------------------------------------------------------------------------------
@@ -482,10 +485,10 @@ let doGame = (fastTextMode, input, sound, t, dt, debug = false) => {
   }
 
   // filter invaders according to state
-  let seekingInvaders = invaders.filter(i => i.state == InvaderState.seeking);
-  let lockedInvaders = invaders.filter(i => i.state == InvaderState.locked);
+  let seekingInvaders   = invaders.filter(i => i.state == InvaderState.seeking);
+  let lockedInvaders    = invaders.filter(i => i.state == InvaderState.locked);
   let abductingInvaders = invaders.filter(i => i.state == InvaderState.abducting);
-  let mutantInvaders = invaders.filter(i => i.state == InvaderState.mutant);
+  let mutantInvaders    = invaders.filter(i => i.state == InvaderState.mutant);
 
   // invader fire
   seekingInvaders.map(i => {
@@ -511,53 +514,47 @@ let doGame = (fastTextMode, input, sound, t, dt, debug = false) => {
   if(invaderProjectiles.length > 30) remove(invaderProjectiles, invaderProjectiles[0].id, graphics);
 
   // events
-  let projectileEvents = checkProjectiles(projectiles, t);
-  let debrisEvents = checkDebris(debris, t);
-  let pointsEvents = checkPoints(points, t);
+  let projectileEvents          = checkProjectiles(projectiles, t);
+  let debrisEvents              = checkDebris(debris, t);
+  let pointsEvents              = checkPoints(points, t);
 
-  let hitEvents = checkHitInvaders(invaders, projectiles);
+  let hitEvents                 = checkHitInvaders(invaders, projectiles);
 
-  let playerProjectileHitEvent = checkHitPlayerProjectiles(player, invaderProjectiles);
-  let playerInvaderHitEvent = checkHitPlayerProjectiles(player, invaders);
-  let playerHumanHitEvent = checkHitPlayerHumans(player, humans);
+  let playerProjectileHitEvent  = checkHitPlayerProjectiles(player, invaderProjectiles);
+  let playerInvaderHitEvent     = checkHitPlayerProjectiles(player, invaders);
+  let playerHumanHitEvent       = checkHitPlayerHumans(player, humans);
 
-  let seekingInvaderEvents = seekingInvaders.reduce((arr, i) => arr.concat(checkSeekingInvader(i, humans)), []);
-  let lockedInvaderEvents = lockedInvaders.reduce((arr, i) => arr.concat(checkLockedInvader(i, invaderTargets.get(i.id))), []);
-  let abductingInvaderEvents = abductingInvaders.reduce((arr, i) => arr.concat(checkAbductingInvader(i)), []);
+  let seekingInvaderEvents      = seekingInvaders.reduce((arr, i)   => arr.concat(checkSeekingInvader(i, humans)), []);
+  let lockedInvaderEvents       = lockedInvaders.reduce((arr, i)    => arr.concat(checkLockedInvader(i, invaderTargets.get(i.id))), []);
+  let abductingInvaderEvents    = abductingInvaders.reduce((arr, i) => arr.concat(checkAbductingInvader(i)), []);
 
   let invaderEvents = [].concat(hitEvents, seekingInvaderEvents, lockedInvaderEvents, abductingInvaderEvents);
 
   let allEvents = [].concat(projectileEvents, playerProjectileHitEvent, playerInvaderHitEvent, playerHumanHitEvent, invaderEvents, debrisEvents, pointsEvents);
-  allEvents.filter(e => e.event == Event.removeProjectile).map(e => remove(projectiles, e.id, graphics));
-  allEvents.filter(e => e.event == Event.removeDebris).map(e => remove(debris, e.id, graphics));
-  allEvents.filter(e => e.event == Event.removePoints).map(e => remove(points, e.id, graphics));
-  allEvents.filter(e => e.event == Event.locked).map(e => invaderTargets.set(e.invaderId, e));
-  allEvents.filter(e => e.event == Event.removeHuman).map(e => remove(humans, e.id, graphics));
-  allEvents.filter(e => e.event == Event.playerDead).map(e => {
-    sound('death');
-    player.state = PlayerState.exploding;
-  });
-  allEvents.filter(e => e.event == Event.collectedHuman).map(_ => {
-    sound('coin');
-    score += 20000;
-    points.push(new Points(pointsId++, player.x, player.y, 0.01, 0.01, t, '20000'));
-  });
+
+  allEvents.filter(e => e.event == Event.removeProjectile)  .map(e => remove(projectiles, e.id, graphics));
+  allEvents.filter(e => e.event == Event.removeDebris)      .map(e => remove(debris, e.id, graphics));
+  allEvents.filter(e => e.event == Event.removePoints)      .map(e => remove(points, e.id, graphics));
+  allEvents.filter(e => e.event == Event.locked)            .map(e => invaderTargets.set(e.invaderId, e));
+  allEvents.filter(e => e.event == Event.removeHuman)       .map(e => remove(humans, e.id, graphics));
+  allEvents.filter(e => e.event == Event.playerDead)        .map(e => {sound('death'); player.state = PlayerState.exploding;});
+  allEvents.filter(e => e.event == Event.collectedHuman)    .map(_ => {sound('coin'); score += 20000; points.push(new Points(pointsId++, player.x, player.y, 0.01, 0.01, t, '20000'));});
 
 
   // update game object state
   // game objects are updated 'in-place'
-  updatePlayerState(player, input);
-  updateInvaderState(invaders, invaderEvents, t);
+  updatePlayerState         (player, input);
+  updateInvaderState        (invaders, invaderEvents, t);
 
   // update positions
   // game objects are updated 'in-place'
-  updatePlayerPosition(player, input, dt);
-  updateInvaders(invaders, invaderTargets, player, dt);
-  updateHumans(humans, dt);
-  updateProjectiles(projectiles, dt);
-  updateProjectiles(invaderProjectiles, dt);
-  updateDebris(debris, dt);
-  updateProjectiles(points, dt);
+  updatePlayerPosition      (player, input, dt);
+  updateInvaderPositions    (invaders, invaderTargets, player, dt);
+  updateHumanPositions      (humans, dt);
+  updateProjectilePositions (projectiles, dt);
+  updateProjectilePositions (invaderProjectiles, dt);
+  updateDebrisPositions     (debris, dt);
+  updateProjectilePositions (points, dt);
 
   // triggers based on state changes must be placed after state update code
 
@@ -586,12 +583,12 @@ let doGame = (fastTextMode, input, sound, t, dt, debug = false) => {
     let c = (i.state == InvaderState.mutant) ? Invader.colourMutant : Invader.colour;
     graphics.set(i.id, {g:g, c:c});
   });
-  humans.map(h => graphics.set(h.id, {g:Human.graphic, c:Human.colour}));
-  projectiles.map(p => graphics.set(p.id, {g:Projectile.graphic, c:Projectile.colour}));
-  invaderProjectiles.map(p => graphics.set(p.id, {g:Projectile.graphic2, c:Projectile.colour2}));
-  starfield.map(s => graphics.set(s.id, {g:Star.graphic, c:Star.colour}));
-  debris.map(d => graphics.set(d.id, {g:Debris.graphic, c:Debris.colour}));
-  points.map(p => graphics.set(p.id, {g:p.points, c:0xffffff}));
+  humans              .map(h => graphics.set(h.id, {g:Human.graphic,       c:Human.colour}));
+  projectiles         .map(p => graphics.set(p.id, {g:Projectile.graphic,  c:Projectile.colour}));
+  invaderProjectiles  .map(p => graphics.set(p.id, {g:Projectile.graphic2, c:Projectile.colour2}));
+  starfield           .map(s => graphics.set(s.id, {g:Star.graphic,        c:Star.colour}));
+  debris              .map(d => graphics.set(d.id, {g:Debris.graphic,      c:Debris.colour}));
+  points              .map(p => graphics.set(p.id, {g:p.points,            c:0xffffff}));
 
   // compute displacements
   let displacementList = [].concat(invaders, humans, projectiles, invaderProjectiles, debris, points);
