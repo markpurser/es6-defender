@@ -1,23 +1,23 @@
 /*
-* FastTextMode
+* textivision.js
 *
 * Copyright (C) 2016  Mark Purser
 * Released under the MIT license
-* http://github.com/markpurser/fast-text-mode/LICENSE
+* http://github.com/markpurser/textivision/LICENSE
 *
 * Tile rendering based on
 * https://github.com/jice-nospam/yendor.ts
 * Copyright (c) 2014 Jice
 */
 
-class FastTextMode {
+class TextIVision {
 
     init(options) {
         var _this = this;
 
         options = options || {};
-        Object.keys( FastTextMode.defaults ).forEach( function( key ) {
-            if (!(key in options)) options[ key ] = FastTextMode.defaults[ key ];
+        Object.keys( TextIVision.defaults ).forEach( function( key ) {
+            if (!(key in options)) options[ key ] = TextIVision.defaults[ key ];
         });
 
         _this._options = options;
@@ -107,7 +107,7 @@ class FastTextMode {
         var index = x + y * this._options.viewWidth;
         this._worldSpriteContainer.getSprites()[index].texture = this._tileTextures[tileCode];
 
-        if( colour == FastTextMode.flash) colour = Math.floor(Math.random() * 0xffffff);
+        if( colour == TextIVision.flash) colour = Math.floor(Math.random() * 0xffffff);
         this._worldSpriteContainer.getSprites()[index].tint = colour;
     }
 
@@ -150,7 +150,7 @@ class FastTextMode {
     }
 }
 
-FastTextMode.defaults = {
+TextIVision.defaults = {
     renderCanvasSize: {width: 1600, height: 900},
     tilesheetImage: "assets/terminal.png",
     tileWidthPx: 8,
@@ -160,7 +160,7 @@ FastTextMode.defaults = {
     displayStats: true
 }
 
-FastTextMode.flash = -1;
+TextIVision.flash = -1;
 
 class SpriteGrid {
 

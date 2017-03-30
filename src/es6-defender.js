@@ -475,7 +475,7 @@ let resetGame = (viewWidth, viewHeight, sound) => {
 // -------------------------------------------------------------------------------------------------------------------------------------------
 // run a single game tick
 // -------------------------------------------------------------------------------------------------------------------------------------------
-let doGame = (fastTextMode, input, sound, t, dt, debug = false) => {
+let doGame = (textivision, input, sound, t, dt, debug = false) => {
 
   // player fire button
   if(input.fire) {
@@ -606,16 +606,16 @@ let doGame = (fastTextMode, input, sound, t, dt, debug = false) => {
     .filter(clip)
     .map(i => {
       let g = graphics.has(i.id) ? graphics.get(i.id) : {g:'!', c:0xff0000};
-      fastTextMode.setString(Math.floor(i.lx), Math.floor(i.ly), g.g, g.c)
+      textivision.setString(Math.floor(i.lx), Math.floor(i.ly), g.g, g.c)
       if(debug) {
         // overlay object id and x coordinate
-        fastTextMode.setNumber(Math.floor(i.lx+3), Math.floor(i.ly), i.id)
-        fastTextMode.setNumber(Math.floor(i.lx), Math.floor(i.ly+4), Math.floor(i.gx_debug))
+        textivision.setNumber(Math.floor(i.lx+3), Math.floor(i.ly), i.id)
+        textivision.setNumber(Math.floor(i.lx), Math.floor(i.ly+4), Math.floor(i.gx_debug))
       }
     });
 
-  fastTextMode.setString(50, 2, 'Score: ');
-  fastTextMode.setNumber(57, 2, score);
+  textivision.setString(50, 2, 'Score: ');
+  textivision.setNumber(57, 2, score);
 
   // compute offset of local coordinate system
   // shift player to right or left of screen

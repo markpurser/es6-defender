@@ -44,8 +44,8 @@
             var viewWidth = Math.floor(canvas.width / tileWidthPx);
             var viewHeight = Math.floor(canvas.height / tileHeightPx);
 
-            var fastTextMode = new FastTextMode;
-            fastTextMode.init({
+            var textivision = new TextIVision;
+            textivision.init({
                 renderCanvas: document.getElementById("render-canvas"),
                 renderCanvasSize: {width: canvas.width, height: canvas.height},
                 tilesheetImage: "assets/terminal.png",
@@ -143,22 +143,22 @@
                     }
 
                     if(!paused) {
-                        dead = doGame(fastTextMode, input, soundPlayer, clock++, dt, false);
+                        dead = doGame(textivision, input, soundPlayer, clock++, dt, false);
 
                         if(dead) {
                             paused = true;
-                            fastTextMode.setString(Math.floor(viewWidth / 2) - 10, Math.floor(viewHeight / 2), 'DEAD press r to restart game');
+                            textivision.setString(Math.floor(viewWidth / 2) - 10, Math.floor(viewHeight / 2), 'DEAD press r to restart game');
                         }
 
-                        fastTextMode.setString(viewWidth - 60, 2, 'r - reset game');
-                        fastTextMode.setString(viewWidth - 40, 2, 'p - pause game');
+                        textivision.setString(viewWidth - 60, 2, 'r - reset game');
+                        textivision.setString(viewWidth - 40, 2, 'p - pause game');
 
-                        if(soundOn) fastTextMode.setString(viewWidth - 20, 2, 's - sound off');
-                        else        fastTextMode.setString(viewWidth - 20, 2, 's - sound on ');
+                        if(soundOn) textivision.setString(viewWidth - 20, 2, 's - sound off');
+                        else        textivision.setString(viewWidth - 20, 2, 's - sound on ');
 
-                        fastTextMode.setString(5, viewHeight - 1, 'Code by Mark Purser.  Defender by Williams.  Sounds by ChipTone, SFB Games.  Pixi.js by Mathew Groves, Chad Engler.');
+                        textivision.setString(5, viewHeight - 1, 'Code by Mark Purser.  Defender by Williams.  Sounds by ChipTone, SFB Games.  Pixi.js by Mathew Groves, Chad Engler.');
 
-                        fastTextMode.render();
+                        textivision.render();
                     }
 
                     requestAnimationFrame(animate);
