@@ -1,23 +1,23 @@
 /*
-* textivision.js
+* retrovision.js
 *
 * Copyright (C) 2016  Mark Purser
 * Released under the MIT license
-* http://github.com/markpurser/textivision/LICENSE
+* http://github.com/markpurser/retrovision/LICENSE
 *
 * Tile rendering based on
 * https://github.com/jice-nospam/yendor.ts
 * Copyright (c) 2014 Jice
 */
 
-class TextIVision {
+class RetroVision {
 
     init(options) {
         var _this = this;
 
         options = options || {};
-        Object.keys( TextIVision.defaults ).forEach( function( key ) {
-            if (!(key in options)) options[ key ] = TextIVision.defaults[ key ];
+        Object.keys( RetroVision.defaults ).forEach( function( key ) {
+            if (!(key in options)) options[ key ] = RetroVision.defaults[ key ];
         });
 
         _this._options = options;
@@ -107,7 +107,7 @@ class TextIVision {
         var index = x + y * this._options.viewWidth;
         this._worldSpriteContainer.getSprites()[index].texture = this._tileTextures[tileCode];
 
-        if( colour == TextIVision.flash) colour = Math.floor(Math.random() * 0xffffff);
+        if( colour == RetroVision.flash) colour = Math.floor(Math.random() * 0xffffff);
         this._worldSpriteContainer.getSprites()[index].tint = colour;
     }
 
@@ -150,7 +150,7 @@ class TextIVision {
     }
 }
 
-TextIVision.defaults = {
+RetroVision.defaults = {
     renderCanvasSize: {width: 1600, height: 900},
     tilesheetImage: "assets/terminal.png",
     tileWidthPx: 8,
@@ -160,7 +160,7 @@ TextIVision.defaults = {
     displayStats: true
 }
 
-TextIVision.flash = -1;
+RetroVision.flash = -1;
 
 class SpriteGrid {
 

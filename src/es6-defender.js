@@ -478,7 +478,7 @@ let resetGame = (viewWidth, viewHeight, sound) => {
 // -------------------------------------------------------------------------------------------------------------------------------------------
 // run a single game tick
 // -------------------------------------------------------------------------------------------------------------------------------------------
-let doGame = (textivision, input, sound, t, dt, debug = false) => {
+let doGame = (textmap, input, sound, t, dt, debug = false) => {
 
   // player fire button
   if(input.fire) {
@@ -610,16 +610,16 @@ let doGame = (textivision, input, sound, t, dt, debug = false) => {
     .filter(clip)
     .map(i => {
       let g = graphics.has(i.id) ? graphics.get(i.id) : {g:'!', c:0xff0000};
-      textivision.setString(Math.floor(i.lx), Math.floor(i.ly), g.g, g.c)
+      textmap.setString(Math.floor(i.lx), Math.floor(i.ly), g.g, g.c)
       if(debug) {
         // overlay object id and x coordinate
-        textivision.setNumber(Math.floor(i.lx+3), Math.floor(i.ly), i.id)
-        textivision.setNumber(Math.floor(i.lx), Math.floor(i.ly+4), Math.floor(i.gx_debug))
+        textmap.setNumber(Math.floor(i.lx+3), Math.floor(i.ly), i.id)
+        textmap.setNumber(Math.floor(i.lx), Math.floor(i.ly+4), Math.floor(i.gx_debug))
       }
     });
 
-  textivision.setString(50, 2, 'Score: ');
-  textivision.setNumber(57, 2, score);
+  textmap.setString(50, 2, 'Score: ');
+  textmap.setNumber(57, 2, score);
 
   // compute offset of local coordinate system
   // shift player to right or left of screen
