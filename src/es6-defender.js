@@ -201,8 +201,11 @@ let detectCollisions = (svArr1, size1, svArr2, size2) =>
 // -------------------------------------------------------------------------------------------------------------------------------------------
 // update state
 // -------------------------------------------------------------------------------------------------------------------------------------------
-let updatePlayerState = (player, input) => {
-  if(player.state == PlayerState.exploding) return;
+let updatePlayerState = (player, input, playerDead) => {
+  if(playerDead) {
+    player.state = PlayerState.exploding;
+    return;
+  }
 
   if(input.leftright != 0) {
     player.state = (input.leftright == -1) ? PlayerState.faceLeft : PlayerState.faceRight;
@@ -531,19 +534,20 @@ let doGame = (textivision, input, sound, t, dt, debug = false) => {
   let invaderEvents = [].concat(hitEvents, seekingInvaderEvents, lockedInvaderEvents, abductingInvaderEvents);
 
   let allEvents = [].concat(projectileEvents, playerProjectileHitEvent, playerInvaderHitEvent, playerHumanHitEvent, invaderEvents, debrisEvents, pointsEvents);
+  let playerDead = false;
 
   allEvents.filter(e => e.event == Event.removeProjectile)  .map(e => remove(projectiles, e.id, graphics));
   allEvents.filter(e => e.event == Event.removeDebris)      .map(e => remove(debris, e.id, graphics));
   allEvents.filter(e => e.event == Event.removePoints)      .map(e => remove(points, e.id, graphics));
   allEvents.filter(e => e.event == Event.locked)            .map(e => invaderTargets.set(e.invaderId, e));
   allEvents.filter(e => e.event == Event.removeHuman)       .map(e => remove(humans, e.id, graphics));
-  allEvents.filter(e => e.event == Event.playerDead)        .map(e => {sound('death'); player.state = PlayerState.exploding;});
+  allEvents.filter(e => e.event == Event.playerDead)        .map(e => {sound('death'); playerDead = true;});
   allEvents.filter(e => e.event == Event.collectedHuman)    .map(_ => {sound('coin'); score += 20000; points.push(new Points(pointsId++, player.x, player.y, 0.01, 0.01, t, '20000'));});
 
 
   // update game object state
   // game objects are updated 'in-place'
-  updatePlayerState         (player, input);
+  updatePlayerState         (player, input, playerDead);
   updateInvaderState        (invaders, invaderEvents, t);
 
   // update positions

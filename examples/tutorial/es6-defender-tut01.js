@@ -70,8 +70,11 @@ let clip = lcoords => (lcoords.lx >= 0) && (lcoords.ly < Global.viewWidth);
 // -------------------------------------------------------------------------------------------------------------------------------------------
 // update state
 // -------------------------------------------------------------------------------------------------------------------------------------------
-let updatePlayerState = (player, input) => {
-  if(player.state == PlayerState.exploding) return;
+let updatePlayerState = (player, input, playerDead) => {
+  if(playerDead) {
+    player.state = PlayerState.exploding;
+    return;
+  }
 
   if(input.leftright != 0) {
     player.state = (input.leftright == -1) ? PlayerState.faceLeft : PlayerState.faceRight;
@@ -130,7 +133,7 @@ let doGame = (textivision, input, sound, t, dt, debug = false) => {
 
   // update game object state
   // game objects are updated 'in-place'
-  updatePlayerState         (player, input);
+  updatePlayerState         (player, input, false);
 
   // update positions
   // game objects are updated 'in-place'
