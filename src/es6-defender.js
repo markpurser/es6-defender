@@ -160,7 +160,7 @@ let toLocal = sv => {
   return {id:sv.id, lx:lx, ly:ly, gx_debug:sv.x};
 }
 
-let clip = lcoords => (lcoords.lx >= 0) && (lcoords.ly < Global.viewWidth);
+let clip = lcoords => (lcoords.lx >= 0) && (lcoords.lx < Global.viewWidth);
 
 let remove = (objects, id, graphics) => {
   let o = objects.findIndex(o => o.id == id);

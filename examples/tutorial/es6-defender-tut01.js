@@ -65,7 +65,7 @@ let toLocal = sv => {
   return {id:sv.id, lx:lx, ly:ly, gx_debug:sv.x};
 }
 
-let clip = lcoords => (lcoords.lx >= 0) && (lcoords.ly < Global.viewWidth);
+let clip = lcoords => (lcoords.lx >= 0) && (lcoords.lx < Global.viewWidth);
 
 // -------------------------------------------------------------------------------------------------------------------------------------------
 // update state
