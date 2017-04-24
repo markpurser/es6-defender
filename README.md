@@ -1,4 +1,3 @@
 # es6-defender
-ES6 Defender
 
-Under Development
+See the article http://markpurser.co.uk/blog/2017/04/18/es6-defender-tut01/index.html
